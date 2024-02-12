@@ -1,14 +1,26 @@
-package repository
+package repositories
 
 import (
 	"encoding/csv"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/jeremyauchter/uplist/models"
 )
 
-func GetResources() []models.Resource {
+type ProductCSVRepository interface {
+	GetProducts() []models.ProductCSV
+}
+
+type ProductCSVRepo struct{}
+
+func NewProductCSVRepository() ProductCSVRepository {
+	return &ProductCSVRepo{}
+}
+
+func (r *ProductCSVRepo) GetProducts() []models.ProductCSV {
 	// Fetch resources from database and return
 	if len(os.Args) < 2 {
 		log.Fatal("Please provide a CSV file as a command line argument")
@@ -21,14 +33,17 @@ func GetResources() []models.Resource {
 	defer file.Close()
 
 	reader := csv.NewReader(file)
+	reader.Comma = ';'
 	reader.FieldsPerRecord = -1
+	reader.Read()
+
 	csvData, err := reader.ReadAll()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var record models.Resource
-	var records []models.Resource
+	var record models.ProductCSV
+	var records []models.ProductCSV
 
 	for _, each := range csvData {
 		record.ID = each[0]
@@ -44,11 +59,17 @@ func GetResources() []models.Resource {
 		record.GTIN = each[10]
 		record.ASIN = each[11]
 		record.Quantity = each[12]
-		record.Price = each[13]
-		record.ImageLink = each[14]
-		record.AdditionalImageLink = each[15]
+		price, err := strconv.ParseFloat(each[13], 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+		record.Price = price
+		var imageLinks []string
+		record.ImageLinks = each[14]
+		record.AdditionalImageLink = append(imageLinks, strings.Split(each[15], ",")...)
 		record.Brand = each[16]
-		record.Tags = each[17]
+		var tags []string
+		record.Tags = append(tags, strings.Split(each[17], ",")...)
 		record.Category = each[18]
 		record.Weight = each[19]
 		record.WeightUnit = each[20]

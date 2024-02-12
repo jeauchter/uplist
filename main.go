@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 
-	"github.com/jeremyauchter/uplist/repository"
+	"github.com/jeremyauchter/uplist/pkg/client"
+	"github.com/jeremyauchter/uplist/pkg/config"
+	"github.com/jeremyauchter/uplist/services"
 )
 
 type Config struct {
@@ -18,30 +16,35 @@ type Config struct {
 
 func main() {
 	// Read the configuration file
-	data, err := ioutil.ReadFile("config.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Parse the configuration file
-	var config Config
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	resources := repository.GetResources()
-	jsonData, err := json.Marshal(resources)
-	log.Println(string(jsonData))
+	config := config.NewConfig()
+	// Ping test to the Etsy Open API
+	etsyAPI := client.NewEtsyAPI(*config)
+	reply, err := etsyAPI.Ping()
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	}
-	resp, err := http.Post(config.APIURL, "application/json", bytes.NewBuffer(jsonData))
+
+	// Fetch resources from the csv file
+	etsyProductService := services.NewProductToEtsyListingService()
+	err = etsyProductService.ConvertToEtsyListing()
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	}
-	defer resp.Body.Close()
-	fmt.Println("response Status:", resp.Status)
+	// log.Println(resources)
+	// jsonData, err := json.Marshal(resources)
+	// log.Println(string(jsonData))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	panic(err)
+	// }
+	// resp, err := http.Post(config.APIURL, "application/json", bytes.NewBuffer(jsonData))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	panic(err)
+	// }
+	// defer resp.Body.Close()
+
+	fmt.Println("response :", reply)
 }
