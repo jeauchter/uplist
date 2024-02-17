@@ -5,41 +5,47 @@ type WhoMade string
 type WhenMade string
 
 const (
-	IDid          WhoMade  = "i_did"
-	SomeoneElse   WhoMade  = "someone_else"
-	Collective    WhoMade  = "collective"
-	MadeToOrder   WhenMade = "made_to_order"
-	Year2020_2024 WhenMade = "2020_2024"
-	Year2010_2019 WhenMade = "2010_2019"
-	Year2005_2009 WhenMade = "2005_2009"
-	Before2005    WhenMade = "before_2005"
-	Year2000_2004 WhenMade = "2000_2004"
-	Decade1990s   WhenMade = "1990s"
-	Decade1980s   WhenMade = "1980s"
-	Decade1970s   WhenMade = "1970s"
-	Decade1960s   WhenMade = "1960s"
-	Decade1950s   WhenMade = "1950s"
-	Decade1940s   WhenMade = "1940s"
-	Decade1930s   WhenMade = "1930s"
-	Decade1920s   WhenMade = "1920s"
-	Decade1910s   WhenMade = "1910s"
-	Decade1900s   WhenMade = "1900s"
-	Decade1800s   WhenMade = "1800s"
-	Decade1700s   WhenMade = "1700s"
-	Before1700    WhenMade = "before_1700"
+	IDid          WhoMade         = "i_did"
+	SomeoneElse   WhoMade         = "someone_else"
+	Collective    WhoMade         = "collective"
+	MadeToOrder   WhenMade        = "made_to_order"
+	Year2020_2024 WhenMade        = "2020_2024"
+	Year2010_2019 WhenMade        = "2010_2019"
+	Year2005_2009 WhenMade        = "2005_2009"
+	Before2005    WhenMade        = "before_2005"
+	Year2000_2004 WhenMade        = "2000_2004"
+	Decade1990s   WhenMade        = "1990s"
+	Decade1980s   WhenMade        = "1980s"
+	Decade1970s   WhenMade        = "1970s"
+	Decade1960s   WhenMade        = "1960s"
+	Decade1950s   WhenMade        = "1950s"
+	Decade1940s   WhenMade        = "1940s"
+	Decade1930s   WhenMade        = "1930s"
+	Decade1920s   WhenMade        = "1920s"
+	Decade1910s   WhenMade        = "1910s"
+	Decade1900s   WhenMade        = "1900s"
+	Decade1800s   WhenMade        = "1800s"
+	Decade1700s   WhenMade        = "1700s"
+	Before1700    WhenMade        = "before_1700"
+	Physical      EtsyListingType = "physical"
+	Digital       EtsyListingType = "digital"
+	Both          EtsyListingType = "both"
 )
 
+type EtsyListingType string
+
 type EtsyListingRequest struct {
-	ShopID      string   `json:"shop_id"`
-	Quantity    string   `json:"quantity"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Price       float64  `json:"price"`
-	WhoMade     WhoMade  `json:"who_made"`
-	WhenMade    WhenMade `json:"when_made"`
-	TaxonomyID  int      `json:"taxonomy_id"`
-	Tags        string   `json:"tags"`
-	ImageIDs    string   `json:"image_ids"`
+	ShopID            string          `json:"shop_id"`
+	Quantity          string          `json:"quantity"`
+	Title             string          `json:"title"`
+	Description       string          `json:"description"`
+	Price             float64         `json:"price"`
+	WhoMade           WhoMade         `json:"who_made"`
+	WhenMade          WhenMade        `json:"when_made"`
+	TaxonomyID        int             `json:"taxonomy_id"`
+	Tags              string          `json:"tags"`
+	Type              EtsyListingType `json:"type"`
+	ShippingProfileID int             `json:"shipping_profile_id"`
 }
 
 type EtsyListingResponse struct {

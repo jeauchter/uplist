@@ -7,15 +7,29 @@ import (
 )
 
 type Config struct {
-	APIURL      string `json:"api_url"`
-	APIKey      string `json:"api_key"`
-	AccessToken string `json:"access_token"`
-	ShopID      string `json:"shop_id"`
+	APIURL            string `json:"api_url"`
+	APIKey            string `json:"api_key"`
+	ShopID            string `json:"shop_id"`
+	APISecret         string `json:"api_secret"`
+	Scopes            string `json:"scopes"`
+	AccessToken       string `json:"access_token"`
+	RefreshToken      string `json:"refresh_token"`
+	ShippingProfileID string `json:"shipping_profile_id"`
+
 	// Add more fields based on your configuration file
 }
 
 func NewConfig() *Config {
-	data, err := os.ReadFile("config.json")
+	// Print the current working directory
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Current working directory:", dir)
+
+	// Continue with your code...
+
+	data, err := os.ReadFile("../../config.json")
 	if err != nil {
 		log.Fatal(err)
 	}

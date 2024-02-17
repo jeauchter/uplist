@@ -27,7 +27,7 @@ func main() {
 
 	// Fetch resources from the csv file
 	etsyProductService := services.NewProductToEtsyListingService()
-	err = etsyProductService.ConvertToEtsyListing()
+	err = etsyProductService.ConvertToEtsyListing(config)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
