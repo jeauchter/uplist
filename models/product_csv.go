@@ -13,7 +13,7 @@ type ProductCSV struct {
 	SKU                 string   `json:"sku"`
 	GTIN                string   `json:"gtin"`
 	ASIN                string   `json:"asin"`
-	Quantity            string   `json:"quantity"`
+	Quantity            int      `json:"quantity"`
 	Price               float64  `json:"price"`
 	ImageLinks          string   `json:"image_link"`
 	AdditionalImageLink []string `json:"additional_image_link"`

@@ -4,6 +4,8 @@ type WhoMade string
 
 type WhenMade string
 
+type EtsyListingType string
+
 const (
 	IDid          WhoMade         = "i_did"
 	SomeoneElse   WhoMade         = "someone_else"
@@ -32,11 +34,39 @@ const (
 	Both          EtsyListingType = "both"
 )
 
-type EtsyListingType string
+type EtsyListing struct {
+	Quantity    int            `json:"quantity"`
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	Price       float64        `json:"price"`
+	Tags        []string       `json:"tags"`
+	Images      []ListingImage `json:"images"`
+	Variants    []EtsyVariant  `json:"variants"`
+}
+
+type EtsyVariant struct {
+	SKU          string  `json:"sku"`
+	Option1Name  string  `json:"option_1_name"`
+	Option1Value string  `json:"option_1_value"`
+	Option2Name  string  `json:"option_2_name" omit_empty:"true"`
+	Option2Value string  `json:"option_2_value" omit_empty:"true"`
+	Option3Name  string  `json:"option_3_name" omit_empty:"true"`
+	Option3Value string  `json:"option_3_value" omit_empty:"true"`
+	Price        float64 `json:"price"`
+	Quantity     int     `json:"quantity"`
+}
+
+type ListingImage struct {
+	Image string `json:"image"`
+	Path  string `json:"path"`
+	Url   string `json:"url"`
+}
+
+type ListingImages map[string]ListingImage
 
 type EtsyListingRequest struct {
 	ShopID            string          `json:"shop_id"`
-	Quantity          string          `json:"quantity"`
+	Quantity          int             `json:"quantity"`
 	Title             string          `json:"title"`
 	Description       string          `json:"description"`
 	Price             float64         `json:"price"`

@@ -15,6 +15,7 @@ type Config struct {
 	AccessToken       string `json:"access_token"`
 	RefreshToken      string `json:"refresh_token"`
 	ShippingProfileID string `json:"shipping_profile_id"`
+	ShopName          string `json:"shop_name"`
 
 	// Add more fields based on your configuration file
 }

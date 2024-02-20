@@ -135,6 +135,23 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 	return listingResponse, nil
 }
 
+func DownloadImage(url string, filepath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
 func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listingID int) (imageReponse models.EtsyListingImageResponse, err error) {
 
 	accessToken, err := api.RefreshToken()
@@ -206,16 +223,7 @@ func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listin
 func (api *EtsyAPI) AuthorizeApp() (string, error) {
 	log.Println("Authorizing app")
 	ctx := context.Background()
-	conf := &oauth2.Config{
-		ClientID:     api.config.APIKey,
-		ClientSecret: api.config.APISecret,
-		Scopes:       []string{strings.Join(strings.Split(api.config.Scopes, ","), " ")},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  " https://www.etsy.com/oauth/connect",
-			TokenURL: "https://api.etsy.com/v3/public/oauth/token",
-		},
-		RedirectURL: "https://d958b797cd46b7a14b1667b41b369d7e.m.pipedream.net",
-	}
+	conf := api.oauth2
 	// Generate a random code verifier
 	codeVerifierBytes := make([]byte, 32)
 	_, err := io.ReadFull(rand.Reader, codeVerifierBytes)
@@ -257,16 +265,7 @@ func (api *EtsyAPI) AuthorizeApp() (string, error) {
 func (api *EtsyAPI) RefreshToken() (string, error) {
 	log.Println("Refreshing token")
 	ctx := context.Background()
-	conf := &oauth2.Config{
-		ClientID:     api.config.APIKey,
-		ClientSecret: api.config.APISecret,
-		Scopes:       []string{strings.Join(strings.Split(api.config.Scopes, ","), " ")},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  " https://www.etsy.com/oauth/connect",
-			TokenURL: "https://api.etsy.com/v3/public/oauth/token",
-		},
-		RedirectURL: "https://d958b797cd46b7a14b1667b41b369d7e.m.pipedream.net",
-	}
+	conf := api.oauth2
 	tok := &oauth2.Token{
 		AccessToken:  api.config.AccessToken,
 		RefreshToken: api.config.RefreshToken,
@@ -292,9 +291,11 @@ type customTokenSource struct {
 }
 
 func (c *customTokenSource) EtsyToken() (*oauth2.Token, error) {
-	if c.tok.Valid() {
-		return c.tok, nil
-	}
+	// if c.tok.Valid() {
+	// 	log.Println(c.tok.Valid())
+	// 	log.Println(c.tok.Expiry)
+	// 	return c.tok, nil
+	// }
 
 	v := url.Values{
 		"grant_type":    {"refresh_token"},
@@ -327,6 +328,7 @@ func (c *customTokenSource) EtsyToken() (*oauth2.Token, error) {
 	}
 
 	c.tok = &token
+	log.Println(c.tok)
 	return c.tok, nil
 }
 
@@ -352,4 +354,33 @@ func (api *EtsyAPI) GetShopID() (string, error) {
 	}
 	fmt.Println(string(body))
 	return string(body), nil
+}
+
+func (api *EtsyAPI) DownloadImage(image models.ListingImage) error {
+	// download image based on url and store it locally in the path
+
+	// Example code to make an HTTP request
+	url := image.Url
+	filepath := image.Path
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Create a new file to store the image
+	file, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Copy the response body to the file
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

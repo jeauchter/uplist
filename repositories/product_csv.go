@@ -58,7 +58,11 @@ func (r *ProductCSVRepo) GetProducts() []models.ProductCSV {
 		record.SKU = each[9]
 		record.GTIN = each[10]
 		record.ASIN = each[11]
-		record.Quantity = each[12]
+		quantity, err := strconv.Atoi(each[12])
+		if err != nil {
+			log.Fatal(err)
+		}
+		record.Quantity = quantity
 		log.Println(each[13])
 		price, err := strconv.ParseFloat(strings.Replace(each[13], ",", ".", -1), 64)
 		if err != nil {

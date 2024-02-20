@@ -9,11 +9,6 @@ import (
 	"github.com/jeremyauchter/uplist/services"
 )
 
-type Config struct {
-	APIURL string `json:"api_url"`
-	// Add more fields based on your configuration file
-}
-
 func main() {
 	// Read the configuration file
 	config := config.NewConfig()
@@ -27,11 +22,24 @@ func main() {
 
 	// Fetch resources from the csv file
 	etsyProductService := services.NewProductToEtsyListingService()
-	err = etsyProductService.ConvertToEtsyListing(config)
+	listings, images, err := etsyProductService.ConvertToEtsyListing(config)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	}
+	log.Println(listings)
+
+	// download all images
+	etsyProductService.DownloadImages(etsyAPI, images) // Discard the return value
+
+	// for each product in results
+	// Submit Listing to Etsy
+	// Submit Images for the Listing
+	// Submit Inventory for the Listing
+	// update listing to active
+	// delete images from local
+	etsyProductService.DeleteLocalImages(images)
+
 	// log.Println(resources)
 	// jsonData, err := json.Marshal(resources)
 	// log.Println(string(jsonData))
