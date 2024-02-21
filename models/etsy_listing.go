@@ -64,6 +64,9 @@ type ListingImage struct {
 
 type ListingImages map[string]ListingImage
 
+type ListingPropertyIDs map[string]int
+type ListingPropertyValues map[string]int
+
 type EtsyListingRequest struct {
 	ShopID            string          `json:"shop_id"`
 	Quantity          int             `json:"quantity"`
@@ -152,15 +155,15 @@ type EtsyProduct struct {
 type EtsyPropertyValue struct {
 	PropertyID   int      `json:"property_id"`
 	ValueIDs     []int    `json:"value_ids"`
-	ScaleID      int      `json:"scale_id"`
+	ScaleID      *int     `json:"scale_id" null:"true" `
 	PropertyName string   `json:"property_name"`
 	Values       []string `json:"values"`
 }
 
 type EtsyOffering struct {
-	Price     int  `json:"price"`
-	Quantity  int  `json:"quantity"`
-	IsEnabled bool `json:"is_enabled"`
+	Price     float64 `json:"price"`
+	Quantity  int     `json:"quantity"`
+	IsEnabled bool    `json:"is_enabled"`
 }
 
 type EtsyListingImageRequest struct {

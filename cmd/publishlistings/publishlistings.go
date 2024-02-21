@@ -7,6 +7,7 @@ import (
 	"github.com/jeremyauchter/uplist/pkg/client"
 	"github.com/jeremyauchter/uplist/pkg/config"
 	"github.com/jeremyauchter/uplist/services"
+	"github.com/jeremyauchter/uplist/util"
 )
 
 func main() {
@@ -22,37 +23,28 @@ func main() {
 
 	// Fetch resources from the csv file
 	etsyProductService := services.NewProductToEtsyListingService()
-	listings, images, err := etsyProductService.ConvertToEtsyListing(config)
+	listings, _, err := etsyProductService.ConvertToEtsyListing(config)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	}
-	log.Println(listings)
+	util.PrintJSON(listings)
 
 	// download all images
-	etsyProductService.DownloadImages(etsyAPI, images) // Discard the return value
+	// etsyProductService.DownloadImages(etsyAPI, images) // Discard the return value
 
 	// for each product in results
-	// Submit Listing to Etsy
-	// Submit Images for the Listing
-	// Submit Inventory for the Listing
-	// update listing to active
+	for _, listing := range listings {
+		// Submit Listing to Etsy
+		// Submit Images for the Listing
+		// Submit Inventory for the Listing
+		inventoryRequest := etsyProductService.ConvertVariantsToEtsyProduct(listing.Variants)
+		util.PrintJSON(inventoryRequest)
+		// util.PrintJSON(listing.Variants)
+		// update listing to active
+	}
 	// delete images from local
-	etsyProductService.DeleteLocalImages(images)
-
-	// log.Println(resources)
-	// jsonData, err := json.Marshal(resources)
-	// log.Println(string(jsonData))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// 	panic(err)
-	// }
-	// resp, err := http.Post(config.APIURL, "application/json", bytes.NewBuffer(jsonData))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// 	panic(err)
-	// }
-	// defer resp.Body.Close()
+	// etsyProductService.DeleteLocalImages(images)
 
 	fmt.Println("response :", reply)
 }

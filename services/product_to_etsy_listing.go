@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -14,13 +13,24 @@ import (
 	"github.com/jeremyauchter/uplist/pkg/client"
 	"github.com/jeremyauchter/uplist/pkg/config"
 	"github.com/jeremyauchter/uplist/repositories"
+	"github.com/jeremyauchter/uplist/util"
 )
 
 type ProductToEtsyListingService struct {
+	propertyIds    models.ListingPropertyIDs
+	propertyValues models.ListingPropertyValues
+	option1Name    string
+	option2Name    string
+	option3Name    string
 }
 
 func NewProductToEtsyListingService() *ProductToEtsyListingService {
-	return &ProductToEtsyListingService{}
+	propertyValues := make(map[string]int)
+	propertyIds := make(map[string]int)
+	return &ProductToEtsyListingService{
+		propertyIds:    propertyIds,
+		propertyValues: propertyValues,
+	}
 }
 
 func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config) (listings []models.EtsyListing, images models.ListingImages, err error) {
@@ -28,7 +38,6 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 	productRepo := repositories.NewProductCSVRepository()
 
 	lines := productRepo.GetProducts()
-	var option_1_name, option_2_name, option_3_name string
 	var listing models.EtsyListing
 	images = make(map[string]models.ListingImage)
 	for _, line := range lines {
@@ -44,27 +53,13 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 			listing.Price = line.Price
 			listing.Quantity = line.Quantity
 			listing.Tags = line.Tags
+			s.option1Name = line.Option1Name
+			s.option2Name = line.Option2Name
+			s.option3Name = line.Option3Name
 
-			option_1_name = line.Option1Name
-			option_2_name = line.Option2Name
-			option_3_name = line.Option3Name
-			variant := models.EtsyVariant{
-				SKU:      line.SKU,
-				Price:    line.Price,
-				Quantity: line.Quantity,
-			}
-			if option_1_name != "" {
-				variant.Option1Name = option_1_name
-				variant.Option1Value = line.Option1Value
-			}
-			if option_2_name != "" {
-				variant.Option2Name = option_2_name
-				variant.Option2Value = line.Option2Value
-			}
-			if option_3_name != "" {
-				variant.Option3Name = option_3_name
-				variant.Option3Value = line.Option3Value
-			}
+			// build variants
+			variant := s.HandleVariant(line, models.EtsyVariant{}, models.EtsyListingInventoryRequest{})
+			log.Println("variant", variant)
 			listing.Variants = append(listing.Variants, variant)
 
 			// build images
@@ -87,23 +82,8 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 			}
 
 		} else {
-			variant := models.EtsyVariant{
-				SKU:      line.SKU,
-				Price:    line.Price,
-				Quantity: line.Quantity,
-			}
-			if option_1_name != "" {
-				variant.Option1Name = option_1_name
-				variant.Option1Value = line.Option1Value
-			}
-			if option_2_name != "" {
-				variant.Option2Name = option_2_name
-				variant.Option2Value = line.Option2Value
-			}
-			if option_3_name != "" {
-				variant.Option3Name = option_3_name
-				variant.Option3Value = line.Option3Value
-			}
+			variant := s.HandleVariant(line, models.EtsyVariant{}, models.EtsyListingInventoryRequest{})
+			log.Println("variant", variant)
 			listing.Variants = append(listing.Variants, variant)
 		}
 	}
@@ -111,14 +91,96 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 		listings = append(listings, listing)
 	}
 
-	jsonData, err := json.MarshalIndent(images, "", "    ")
-	log.Println(string(jsonData))
-	if err != nil {
-		log.Fatal(err)
-		panic(err)
-	}
+	log.Println("propertyValues", s.propertyValues)
+	// util.PrintJSON(listings)
 
 	return listings, images, nil
+}
+
+func (s *ProductToEtsyListingService) HandleVariant(line models.ProductCSV, variant models.EtsyVariant, etsyInventoryRequest models.EtsyListingInventoryRequest) models.EtsyVariant {
+
+	variant.SKU = line.SKU
+	variant.Price = line.Price
+	variant.Quantity = line.Quantity
+	if s.option1Name != "" {
+		variant.Option1Name = s.option1Name
+		if s.propertyIds[s.option1Name] == 0 {
+			s.propertyIds[s.option1Name] = len(s.propertyIds) + 100
+		}
+		variant.Option1Value = line.Option1Value
+		if s.propertyValues[line.Option1Value] == 0 {
+			s.propertyValues[line.Option1Value] = len(s.propertyValues) + 1000
+		}
+	}
+	if s.option2Name != "" {
+		variant.Option2Name = s.option2Name
+		if s.propertyIds[s.option2Name] == 0 {
+			s.propertyIds[s.option2Name] = len(s.propertyIds) + 100
+		}
+		variant.Option2Value = line.Option2Value
+		if s.propertyValues[line.Option2Value] == 0 {
+			s.propertyValues[line.Option2Value] = len(s.propertyValues) + 1000
+		}
+
+	}
+	if s.option3Name != "" {
+		variant.Option3Name = s.option3Name
+		if s.propertyIds[s.option3Name] == 0 {
+			s.propertyIds[s.option3Name] = len(s.propertyIds) + 100
+		}
+		variant.Option3Value = line.Option3Value
+		if s.propertyValues[line.Option3Value] == 0 {
+			s.propertyValues[line.Option3Value] = len(s.propertyValues) + 1000
+		}
+
+	}
+	log.Println(s.propertyIds)
+	return variant
+}
+
+func (s *ProductToEtsyListingService) ConvertVariantsToEtsyProduct(variants []models.EtsyVariant) (etsyInventoryRequest models.EtsyListingInventoryRequest) {
+	for _, variant := range variants {
+		var product models.EtsyProduct
+		product.SKU = variant.SKU
+		var productOffering models.EtsyOffering
+		productOffering.IsEnabled = true
+		productOffering.Price = variant.Price
+		productOffering.Quantity = variant.Quantity
+		product.Offerings = append(product.Offerings, productOffering)
+		if variant.Option1Name != "" {
+			var propertyValue models.EtsyPropertyValue
+			propertyValue.PropertyID = s.propertyIds[variant.Option1Name]
+			propertyValue.PropertyName = variant.Option1Name
+			propertyValue.ValueIDs = append(propertyValue.ValueIDs, s.propertyValues[variant.Option1Value])
+			propertyValue.Values = append(propertyValue.Values, variant.Option1Value)
+			product.PropertyValues = append(product.PropertyValues, propertyValue)
+		}
+		if variant.Option2Name != "" {
+			var propertyValue models.EtsyPropertyValue
+			propertyValue.PropertyID = s.propertyIds[variant.Option2Name]
+			propertyValue.PropertyName = variant.Option2Name
+			propertyValue.ValueIDs = append(propertyValue.ValueIDs, s.propertyValues[variant.Option2Value])
+			propertyValue.Values = append(propertyValue.Values, variant.Option2Value)
+			product.PropertyValues = append(product.PropertyValues, propertyValue)
+		}
+		if variant.Option3Name != "" {
+			var propertyValue models.EtsyPropertyValue
+			propertyValue.PropertyID = s.propertyIds[variant.Option3Name]
+			propertyValue.PropertyName = variant.Option3Name
+			propertyValue.ValueIDs = append(propertyValue.ValueIDs, s.propertyValues[variant.Option3Value])
+			propertyValue.Values = append(propertyValue.Values, variant.Option3Value)
+			product.PropertyValues = append(product.PropertyValues, propertyValue)
+		}
+		etsyInventoryRequest.Products = append(etsyInventoryRequest.Products, product)
+		if !util.ContainsInt(etsyInventoryRequest.PriceOnProperty, s.propertyIds[variant.Option1Name]) {
+			etsyInventoryRequest.PriceOnProperty = append(etsyInventoryRequest.PriceOnProperty, s.propertyIds[variant.Option1Name])
+		}
+		if !util.ContainsInt(etsyInventoryRequest.SkuOnProperty, s.propertyIds[variant.Option1Name]) {
+			etsyInventoryRequest.SkuOnProperty = append(etsyInventoryRequest.SkuOnProperty, s.propertyIds[variant.Option1Name])
+		}
+	}
+
+	return etsyInventoryRequest
 }
 
 func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, config *config.Config) (listingId int, err error) {

@@ -135,23 +135,6 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 	return listingResponse, nil
 }
 
-func DownloadImage(url string, filepath string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
-
 func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listingID int) (imageReponse models.EtsyListingImageResponse, err error) {
 
 	accessToken, err := api.RefreshToken()
@@ -218,6 +201,47 @@ func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listin
 	}
 
 	return imageReponse, nil
+}
+
+func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryRequest, listingID int, accessToken string) (err error) {
+	url := fmt.Sprintf("https://api.etsy.com/v3/application/listings/%d/inventory", listingID)
+
+	req, err := http.NewRequest("PUT", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Add("x-api-key", api.config.APIKey)
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+
+	jsonListing, err := json.Marshal(inventoryData)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Body = io.NopCloser(strings.NewReader(string(jsonListing)))
+	log.Println(string(jsonListing))
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Example code to send the HTTP request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	log.Print(resp)
+	defer resp.Body.Close()
+	log.Println(resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("failed to send request: %s", string(body))
+	}
+	log.Println(string(body))
+
+	return nil
 }
 
 func (api *EtsyAPI) AuthorizeApp() (string, error) {
