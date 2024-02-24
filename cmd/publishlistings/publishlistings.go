@@ -23,28 +23,54 @@ func main() {
 
 	// Fetch resources from the csv file
 	etsyProductService := services.NewProductToEtsyListingService()
-	listings, _, err := etsyProductService.ConvertToEtsyListing(config)
+	listings, images, err := etsyProductService.ConvertToEtsyListing(config)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	}
-	util.PrintJSON(listings)
+	// util.PrintJSON(listings)
 
 	// download all images
-	// etsyProductService.DownloadImages(etsyAPI, images) // Discard the return value
+	etsyProductService.DownloadImages(etsyAPI, images) // Discard the return value
 
 	// for each product in results
 	for _, listing := range listings {
 		// Submit Listing to Etsy
+		listingId, err := etsyProductService.SubmitListingToEtsy(listing, etsyAPI, config)
+		if err != nil {
+			log.Fatal(err)
+			panic(err)
+		}
+
 		// Submit Images for the Listing
+		listingImages := etsyProductService.ConvertImagesToEtsyImageRequests(listing.Images)
+		for _, image := range listingImages {
+			_, err := etsyAPI.UploadImage(image, listingId)
+			if err != nil {
+				log.Fatal(err)
+				panic(err)
+				//something went wrong with image upload, delete the listing
+				//TODO: etsyAPI.DeleteListing(listingId)
+				// etsyAPI.DeleteListing(listingId)
+			}
+
+		}
 		// Submit Inventory for the Listing
 		inventoryRequest := etsyProductService.ConvertVariantsToEtsyProduct(listing.Variants)
 		util.PrintJSON(inventoryRequest)
+		// TODO: implement token store in database over passing it all over the place
+		err = etsyAPI.SubmitInventory(inventoryRequest, listingId, "token")
+		if err != nil {
+			log.Fatal(err)
+			panic(err)
+		}
 		// util.PrintJSON(listing.Variants)
 		// update listing to active
+		// TODO: implement UpdateListingState
+		// _, err = etsyAPI.UpdateListingState(listingId, "active")
 	}
 	// delete images from local
-	// etsyProductService.DeleteLocalImages(images)
+	etsyProductService.DeleteLocalImages(images)
 
 	fmt.Println("response :", reply)
 }

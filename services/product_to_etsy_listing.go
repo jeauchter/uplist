@@ -22,14 +22,17 @@ type ProductToEtsyListingService struct {
 	option1Name    string
 	option2Name    string
 	option3Name    string
+	images         models.ListingImages
 }
 
 func NewProductToEtsyListingService() *ProductToEtsyListingService {
 	propertyValues := make(map[string]int)
 	propertyIds := make(map[string]int)
+	images := make(map[string]models.ListingImage)
 	return &ProductToEtsyListingService{
 		propertyIds:    propertyIds,
 		propertyValues: propertyValues,
+		images:         images,
 	}
 }
 
@@ -39,7 +42,6 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 
 	lines := productRepo.GetProducts()
 	var listing models.EtsyListing
-	images = make(map[string]models.ListingImage)
 	for _, line := range lines {
 		if line.Title != "" {
 
@@ -65,7 +67,8 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 			// build images
 			imageLinks := line.ImageLinks
 			mainImage := models.ListingImage{Url: imageLinks, Path: fmt.Sprintf("../../tmp/images/%s", filepath.Base(imageLinks)), Image: filepath.Base(imageLinks)}
-			images[imageLinks] = mainImage
+			s.images[imageLinks] = mainImage
+			listing.Images = append(listing.Images, imageLinks)
 			altImages := line.AdditionalImageLink
 			for _, link := range altImages {
 				// breakdown the image link
@@ -78,7 +81,8 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 
 				filename := filepath.Base(parsedURL.Path)
 				image := models.ListingImage{Url: link, Path: fmt.Sprintf("../../tmp/images/%s", filename), Image: filename}
-				images[link] = image
+				s.images[link] = image
+				listing.Images = append(listing.Images, link)
 			}
 
 		} else {
@@ -181,6 +185,16 @@ func (s *ProductToEtsyListingService) ConvertVariantsToEtsyProduct(variants []mo
 	}
 
 	return etsyInventoryRequest
+}
+
+func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []string) (etsyImages []models.EtsyListingImageRequest) {
+	for _, image := range images {
+		etsyImage := models.EtsyListingImageRequest{
+			Image: s.images[image].Path,
+		}
+		etsyImages = append(etsyImages, etsyImage)
+	}
+	return etsyImages
 }
 
 func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, config *config.Config) (listingId int, err error) {

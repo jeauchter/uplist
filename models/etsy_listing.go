@@ -35,13 +35,13 @@ const (
 )
 
 type EtsyListing struct {
-	Quantity    int            `json:"quantity"`
-	Title       string         `json:"title"`
-	Description string         `json:"description"`
-	Price       float64        `json:"price"`
-	Tags        []string       `json:"tags"`
-	Images      []ListingImage `json:"images"`
-	Variants    []EtsyVariant  `json:"variants"`
+	Quantity    int           `json:"quantity"`
+	Title       string        `json:"title"`
+	Description string        `json:"description"`
+	Price       float64       `json:"price"`
+	Tags        []string      `json:"tags"`
+	Images      []string      `json:"images"`
+	Variants    []EtsyVariant `json:"variants"`
 }
 
 type EtsyVariant struct {
@@ -167,11 +167,11 @@ type EtsyOffering struct {
 }
 
 type EtsyListingImageRequest struct {
-	Image          string `json:"image"`
-	ListingImageID int    `json:"listing_image_id"`
-	Overwrite      bool   `json:"overwrite" default:"false"`
-	IsWatermarked  bool   `json:"is_watermarked" default:"false"`
-	AltText        string `json:"alt_text" default:""`
+	Image          string  `json:"image"`
+	ListingImageID *int    `json:"listing_image_id"`
+	Overwrite      *bool   `json:"overwrite" default:"false"`
+	IsWatermarked  *bool   `json:"is_watermarked" default:"false"`
+	AltText        *string `json:"alt_text" default:""`
 }
 
 type EtsyListingImageResponse struct {
