@@ -133,6 +133,11 @@ type EtsyListingResponse struct {
 	TaxonomyID                  int          `json:"taxonomy_id"`
 }
 
+type EtsyListings struct {
+	Count   int                   `json:"count"`
+	Results []EtsyListingResponse `json:"results"`
+}
+
 type ListingPrice struct {
 	Amount       int    `json:"amount"`
 	Divisor      int    `json:"divisor"`

@@ -16,35 +16,62 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/oauth2"
 
 	"github.com/jeremyauchter/uplist/models"
-	"github.com/jeremyauchter/uplist/pkg/config"
 )
 
 type EtsyAPI struct {
-	config *config.Config
-	oauth2 *oauth2.Config
+	oauth2       *oauth2.Config
+	apiKey       string
+	apiSecret    string
+	shopID       string
+	accessToken  string
+	refreshToken string
+	expiresAt    time.Time
 }
 
-func NewEtsyAPI(config config.Config) *EtsyAPI {
+func NewEtsyAPI(apiKey string, apiSecret string) *EtsyAPI {
 	return &EtsyAPI{
-		config: &config,
-		oauth2: &oauth2.Config{
-			ClientID:     config.APIKey,
-			ClientSecret: config.APISecret,
-			Scopes:       []string{strings.Join(strings.Split(config.Scopes, ","), " ")},
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  " https://www.etsy.com/oauth/connect",
-				TokenURL: "https://api.etsy.com/v3/public/oauth/token",
-			},
-			RedirectURL: "https://d958b797cd46b7a14b1667b41b369d7e.m.pipedream.net",
-		},
+		apiKey:    apiKey,
+		apiSecret: apiSecret,
 	}
 }
 
-func (api *EtsyAPI) Ping() (string, error) {
+func (api *EtsyAPI) SetOAuthConfig() *oauth2.Config {
+	oauth2 := &oauth2.Config{
+		ClientID:     api.apiKey,
+		ClientSecret: api.apiSecret,
+		Scopes:       []string{strings.Join(strings.Split("listings_r,listings_w,shops_r,shops_w,listings_d", ","), " ")},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  " https://www.etsy.com/oauth/connect",
+			TokenURL: "https://api.etsy.com/v3/public/oauth/token",
+		},
+		RedirectURL: "https://d958b797cd46b7a14b1667b41b369d7e.m.pipedream.net",
+	}
+	api.oauth2 = oauth2
+	return api.oauth2
+}
+
+func (api *EtsyAPI) SetShopId(shopId string) {
+	api.shopID = shopId
+}
+
+func (api *EtsyAPI) SetAccessToken(accessToken string) {
+	api.accessToken = accessToken
+}
+
+func (api *EtsyAPI) SetRefreshToken(refreshToken string) {
+	api.refreshToken = refreshToken
+}
+
+func (api *EtsyAPI) SetExpiresAt(expiresAt time.Time) {
+	api.expiresAt = expiresAt
+}
+
+func (api *EtsyAPI) Ping() (int, error) {
 	// TODO: Implement the logic to ping the Etsy Open API
 	// You can use the accessToken field to authenticate the request
 
@@ -52,27 +79,59 @@ func (api *EtsyAPI) Ping() (string, error) {
 	url := "https://api.etsy.com/v3/application/openapi-ping"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
+		return 0, fmt.Errorf("failed to create request: %v", err)
 	}
-	req.Header.Add("x-api-key", api.config.APIKey)
+	req.Header.Add("x-api-key", api.apiKey)
 
 	// Example code to send the HTTP request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to send request: %v", err)
+		return resp.StatusCode, fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
+	_, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse body of response: %v", err)
+	}
+
+	return resp.StatusCode, nil
+}
+
+func (api *EtsyAPI) GetListingsByShop() (models.EtsyListings, error) {
+	baseUrl := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings", api.shopID)
+
+	values := url.Values{}
+	values.Add("limit", "1")
+
+	urlWithParams := baseUrl + "?" + values.Encode()
+
+	req, err := http.NewRequest("GET", urlWithParams, nil)
+	if err != nil {
+		return models.EtsyListings{}, fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Add("x-api-key", api.apiKey)
+	req.Header.Add("Authorization", "Bearer "+api.accessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return models.EtsyListings{}, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
-		return "", err
+		return models.EtsyListings{}, fmt.Errorf("failed to parse body of response: %v", err)
 	}
-	fmt.Println(string(body))
 
-	// TODO: Handle the response from the Etsy Open API
+	var listings models.EtsyListings
+	err = json.Unmarshal(body, &listings)
+	if err != nil {
+		return models.EtsyListings{}, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
 
-	return string(body), nil
+	return listings, nil
 }
 
 func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listingResponse models.EtsyListingResponse, err error) {
@@ -80,16 +139,11 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 	// You can use the accessToken field to authenticate the request
 	// and the listingData parameter to provide the listing details
 
-	accessToken, err := api.RefreshToken()
-	if err != nil {
-		return models.EtsyListingResponse{}, fmt.Errorf("failed to refresh token: %v", err)
-	}
-
 	// Example code to make an HTTP request
-	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings", api.config.ShopID)
+	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings", api.shopID)
 	req, err := http.NewRequest("POST", url, nil)
-	req.Header.Add("x-api-key", api.config.APIKey)
-	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("x-api-key", api.apiKey)
+	req.Header.Add("Authorization", "Bearer "+api.accessToken)
 	log.Println(req)
 	if err != nil {
 		return models.EtsyListingResponse{}, fmt.Errorf("failed to create request: %v", err)
@@ -137,18 +191,14 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 
 func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listingID int) (imageReponse models.EtsyListingImageResponse, err error) {
 
-	accessToken, err := api.RefreshToken()
-	if err != nil {
-		return models.EtsyListingImageResponse{}, fmt.Errorf("failed to refresh token: %v", err)
-	}
-	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings/%s/images", api.config.ShopID, strconv.Itoa(listingID))
+	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings/%s/images", api.shopID, strconv.Itoa(listingID))
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		return models.EtsyListingImageResponse{}, fmt.Errorf("failed to create request: %v", err)
 	}
-	req.Header.Add("x-api-key", api.config.APIKey)
-	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("x-api-key", api.apiKey)
+	req.Header.Add("Authorization", "Bearer "+api.accessToken)
 	// Create a new multipart writer
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -210,7 +260,7 @@ func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryReq
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
-	req.Header.Add("x-api-key", api.config.APIKey)
+	req.Header.Add("x-api-key", api.apiKey)
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	jsonListing, err := json.Marshal(inventoryData)
@@ -244,7 +294,7 @@ func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryReq
 	return nil
 }
 
-func (api *EtsyAPI) AuthorizeApp() (string, error) {
+func (api *EtsyAPI) AuthorizeApp() (string, string, time.Time, error) {
 	log.Println("Authorizing app")
 	ctx := context.Background()
 	conf := api.oauth2
@@ -263,7 +313,8 @@ func (api *EtsyAPI) AuthorizeApp() (string, error) {
 	// Create the authorization URL with the code challenge
 	url := conf.AuthCodeURL("state", oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("code_challenge", codeChallenge), oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 	fmt.Printf("Visit the URL for the auth dialog: %v", url)
-
+	fmt.Println("After Granting access to Uplist, you will be redirected to the redirect URL.")
+	fmt.Println("Enter the code in the URL: ")
 	// Use the authorization code that is pushed to the redirect
 	// URL. Exchange will do the handshake to retrieve the
 	// initial access token.
@@ -280,90 +331,100 @@ func (api *EtsyAPI) AuthorizeApp() (string, error) {
 	log.Println(tok.AccessToken)
 
 	log.Println(tok.RefreshToken)
+	log.Println(tok.Expiry)
 
 	client := conf.Client(ctx, tok)
 	client.Get("...")
-	return "ok", nil
+	return tok.AccessToken, tok.RefreshToken, tok.Expiry, nil
 }
 
-func (api *EtsyAPI) RefreshToken() (string, error) {
+func (api *EtsyAPI) RefreshToken() (string, string, time.Time, error) {
 	log.Println("Refreshing token")
 	ctx := context.Background()
 	conf := api.oauth2
 	tok := &oauth2.Token{
-		AccessToken:  api.config.AccessToken,
-		RefreshToken: api.config.RefreshToken,
+		AccessToken:  api.accessToken,
+		RefreshToken: api.refreshToken,
 		TokenType:    "Bearer",
+		Expiry:       api.expiresAt,
 	}
 	// Create a new context with the token source
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{})
-	cts := &customTokenSource{ctx, conf, tok}
+	// cts := &customTokenSource{ctx, conf, tok}
 
-	newTok, err := cts.EtsyToken()
+	//newTok, err := cts.EtsyToken()
+	newTok, err := conf.TokenSource(ctx, tok).Token()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Printf("New access token: %s\n", newTok.AccessToken)
-	return newTok.AccessToken, nil
+	fmt.Printf("New refresh token: %s\n", newTok.RefreshToken)
+	fmt.Printf("New expiry: %s\n", newTok.Expiry)
+	return newTok.AccessToken, newTok.RefreshToken, newTok.Expiry, nil
 }
 
-type customTokenSource struct {
-	ctx  context.Context
-	conf *oauth2.Config
-	tok  *oauth2.Token
-}
+// type customTokenSource struct {
+// 	ctx  context.Context
+// 	conf *oauth2.Config
+// 	tok  *oauth2.Token
+// }
 
-func (c *customTokenSource) EtsyToken() (*oauth2.Token, error) {
-	// if c.tok.Valid() {
-	// 	log.Println(c.tok.Valid())
-	// 	log.Println(c.tok.Expiry)
-	// 	return c.tok, nil
-	// }
+// func (c *customTokenSource) EtsyToken() (*oauth2.Token, error) {
+// 	if c.tok.Valid() {
+// 		fmt.Println("Token is valid")
+// 		return c.tok, nil
+// 	} else {
+// 		fmt.Println("Token is not valid, refreshing")
+// 	}
 
-	v := url.Values{
-		"grant_type":    {"refresh_token"},
-		"refresh_token": {c.tok.RefreshToken},
-		"client_id":     {c.conf.ClientID},
-	}
+// 	v := url.Values{
+// 		"grant_type":    {"refresh_token"},
+// 		"refresh_token": {c.tok.RefreshToken},
+// 		"client_id":     {c.conf.ClientID},
+// 	}
 
-	req, err := http.NewRequest("POST", c.conf.Endpoint.TokenURL, strings.NewReader(v.Encode()))
+// 	req, err := http.NewRequest("POST", c.conf.Endpoint.TokenURL, strings.NewReader(v.Encode()))
 
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+// 	resp, err := http.DefaultClient.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+// 	body, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	var token oauth2.Token
-	err = json.Unmarshal(body, &token)
-	if err != nil {
-		return nil, err
-	}
+// 	var token oauth2.Token
+// 	err = json.Unmarshal(body, &token)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	c.tok = &token
-	log.Println(c.tok)
-	return c.tok, nil
-}
+// 	c.tok = &token
+// 	log.Println(c.tok)
+// 	return c.tok, nil
+// }
 
-func (api *EtsyAPI) GetShopID() (string, error) {
-	url := "https://api.etsy.com/v3/application/shops"
-	req, err := http.NewRequest("GET", url, nil)
+func (api *EtsyAPI) GetShopID(shopName string) (string, error) {
+	urlString := "https://api.etsy.com/v3/application/shops"
+	values := url.Values{}
+	values.Add("shop_name", shopName)
+
+	urlWithParams := urlString + "?" + values.Encode()
+	req, err := http.NewRequest("GET", urlWithParams, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
 	}
-	req.Header.Add("x-api-key", api.config.APIKey)
-	req.Header.Add("Authorization", "Bearer "+api.config.AccessToken)
+	req.Header.Add("x-api-key", api.apiKey)
+	// req.Header.Add("Authorization", "Bearer "+api.accessToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -376,7 +437,6 @@ func (api *EtsyAPI) GetShopID() (string, error) {
 		fmt.Println(err)
 		return "", err
 	}
-	fmt.Println(string(body))
 	return string(body), nil
 }
 

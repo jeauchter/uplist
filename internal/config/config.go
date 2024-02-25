@@ -22,11 +22,11 @@ type Config struct {
 
 func NewConfig() *Config {
 	// Print the current working directory
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Current working directory:", dir)
+	// dir, err := os.Getwd()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// log.Println("Current working directory:", dir)
 
 	// Continue with your code...
 

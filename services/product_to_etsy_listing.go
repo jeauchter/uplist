@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jeremyauchter/uplist/internal/client"
+	"github.com/jeremyauchter/uplist/internal/config"
 	"github.com/jeremyauchter/uplist/models"
-	"github.com/jeremyauchter/uplist/pkg/client"
-	"github.com/jeremyauchter/uplist/pkg/config"
 	"github.com/jeremyauchter/uplist/repositories"
 	"github.com/jeremyauchter/uplist/util"
 )
