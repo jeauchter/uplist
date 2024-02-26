@@ -36,11 +36,11 @@ func NewProductToEtsyListingService() *ProductToEtsyListingService {
 	}
 }
 
-func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config) (listings []models.EtsyListing, images models.ListingImages, err error) {
+func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string) (listings []models.EtsyListing, images models.ListingImages, err error) {
 	// TODO: Implement the logic to convert a product to an Etsy listing
 	productRepo := repositories.NewProductCSVRepository()
 
-	lines := productRepo.GetProducts()
+	lines := productRepo.GetProducts(csvPath)
 	var listing models.EtsyListing
 	for _, line := range lines {
 		if line.Title != "" {
@@ -61,18 +61,17 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 
 			// build variants
 			variant := s.HandleVariant(line, models.EtsyVariant{}, models.EtsyListingInventoryRequest{})
-			log.Println("variant", variant)
 			listing.Variants = append(listing.Variants, variant)
 
 			// build images
 			imageLinks := line.ImageLinks
-			mainImage := models.ListingImage{Url: imageLinks, Path: fmt.Sprintf("../../tmp/images/%s", filepath.Base(imageLinks)), Image: filepath.Base(imageLinks)}
+			mainImage := models.ListingImage{Url: imageLinks, Path: fmt.Sprintf("../../tmp/images/%s", filepath.Base(imageLinks)), Image: filepath.Base(imageLinks), Rank: 1}
 			s.images[imageLinks] = mainImage
 			listing.Images = append(listing.Images, imageLinks)
 			altImages := line.AdditionalImageLink
-			for _, link := range altImages {
+			for counter, link := range altImages {
 				// breakdown the image link
-
+				rank := counter + 1
 				parsedURL, err := url.Parse(link)
 				if err != nil {
 					log.Println("Failed to parse URL:", err)
@@ -80,14 +79,13 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 				}
 
 				filename := filepath.Base(parsedURL.Path)
-				image := models.ListingImage{Url: link, Path: fmt.Sprintf("../../tmp/images/%s", filename), Image: filename}
+				image := models.ListingImage{Url: link, Path: fmt.Sprintf("../../tmp/images/%s", filename), Image: filename, Rank: rank}
 				s.images[link] = image
 				listing.Images = append(listing.Images, link)
 			}
 
 		} else {
 			variant := s.HandleVariant(line, models.EtsyVariant{}, models.EtsyListingInventoryRequest{})
-			log.Println("variant", variant)
 			listing.Variants = append(listing.Variants, variant)
 		}
 	}
@@ -95,10 +93,9 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(config *config.Config
 		listings = append(listings, listing)
 	}
 
-	log.Println("propertyValues", s.propertyValues)
 	// util.PrintJSON(listings)
 
-	return listings, images, nil
+	return listings, s.images, nil
 }
 
 func (s *ProductToEtsyListingService) HandleVariant(line models.ProductCSV, variant models.EtsyVariant, etsyInventoryRequest models.EtsyListingInventoryRequest) models.EtsyVariant {
@@ -138,7 +135,6 @@ func (s *ProductToEtsyListingService) HandleVariant(line models.ProductCSV, vari
 		}
 
 	}
-	log.Println(s.propertyIds)
 	return variant
 }
 
@@ -197,13 +193,12 @@ func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []
 	return etsyImages
 }
 
-func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, config *config.Config) (listingId int, err error) {
+func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, config *config.Config, returnPolicyID int) (listingId int, err error) {
 	intShippingProfileID, err := strconv.Atoi(config.ShippingProfileID)
 	if err != nil {
 		log.Fatal(err)
 		return 0, err
 	}
-	log.Println("intShippeingId", intShippingProfileID)
 
 	// build base listing
 	baseListing := models.EtsyListingRequest{
@@ -218,8 +213,8 @@ func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyLis
 		Tags:              strings.Join(listing.Tags, ","),
 		ShippingProfileID: intShippingProfileID,
 		Type:              models.Physical,
+		ReturnPolicyID:    returnPolicyID,
 	}
-	log.Println(baseListing)
 	listingResponse, err := etsyApi.SubmitListing(baseListing)
 	if err != nil {
 		log.Fatal(err)
@@ -233,7 +228,6 @@ func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyLis
 
 func (s *ProductToEtsyListingService) DownloadImages(etsyApi *client.EtsyAPI, images models.ListingImages) {
 	for _, image := range images {
-		log.Println(image.Url)
 		// only download the image if it doesn't exist
 		filepath := image.Path
 		if _, err := os.Stat(filepath); err != nil {

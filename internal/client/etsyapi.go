@@ -102,7 +102,7 @@ func (api *EtsyAPI) GetListingsByShop() (models.EtsyListings, error) {
 	baseUrl := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings", api.shopID)
 
 	values := url.Values{}
-	values.Add("limit", "1")
+	values.Add("limit", "10")
 
 	urlWithParams := baseUrl + "?" + values.Encode()
 
@@ -134,6 +134,36 @@ func (api *EtsyAPI) GetListingsByShop() (models.EtsyListings, error) {
 	return listings, nil
 }
 
+func (api *EtsyAPI) GetReturnPolicies() (models.EtsyReturnPolicyRepsonse, error) {
+	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/policies/return", api.shopID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return models.EtsyReturnPolicyRepsonse{}, fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Add("x-api-key", api.apiKey)
+	req.Header.Add("Authorization", "Bearer "+api.accessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return models.EtsyReturnPolicyRepsonse{}, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.EtsyReturnPolicyRepsonse{}, fmt.Errorf("failed to parse body of response: %v", err)
+	}
+
+	var returnPolicy models.EtsyReturnPolicyRepsonse
+	err = json.Unmarshal(body, &returnPolicy)
+	if err != nil {
+		return models.EtsyReturnPolicyRepsonse{}, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return returnPolicy, nil
+}
+
 func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listingResponse models.EtsyListingResponse, err error) {
 	// TODO: Implement the logic to submit the listing to the Etsy Open API
 	// You can use the accessToken field to authenticate the request
@@ -144,7 +174,6 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 	req, err := http.NewRequest("POST", url, nil)
 	req.Header.Add("x-api-key", api.apiKey)
 	req.Header.Add("Authorization", "Bearer "+api.accessToken)
-	log.Println(req)
 	if err != nil {
 		return models.EtsyListingResponse{}, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -157,7 +186,6 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 		return
 	}
 	req.Body = io.NopCloser(strings.NewReader(string(jsonListing)))
-	log.Println(string(jsonListing))
 
 	req.Header.Set("Content-Type", "application/json")
 
@@ -167,9 +195,7 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 	if err != nil {
 		return models.EtsyListingResponse{}, fmt.Errorf("failed to send request: %v", err)
 	}
-	log.Print(resp)
 	defer resp.Body.Close()
-	log.Println(resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)
@@ -177,7 +203,6 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 	if resp.StatusCode >= 400 {
 		return models.EtsyListingResponse{}, fmt.Errorf("failed to send request: %s", string(body))
 	}
-	log.Println(string(body))
 
 	err = json.Unmarshal(body, &listingResponse)
 	if err != nil {
@@ -189,7 +214,7 @@ func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listin
 	return listingResponse, nil
 }
 
-func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listingID int) (imageReponse models.EtsyListingImageResponse, err error) {
+func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listingID int, counter int) (imageReponse models.EtsyListingImageResponse, err error) {
 
 	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings/%s/images", api.shopID, strconv.Itoa(listingID))
 
@@ -202,24 +227,29 @@ func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listin
 	// Create a new multipart writer
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
+	// Add rank to the multipart form data
+	rankPart, err := writer.CreateFormField("rank")
+	if err != nil {
+		return models.EtsyListingImageResponse{}, fmt.Errorf("failed to create form field: %v", err)
+	}
+	_, err = rankPart.Write([]byte(strconv.Itoa(counter)))
+	if err != nil {
+		return models.EtsyListingImageResponse{}, fmt.Errorf("failed to write to form field: %v", err)
+	}
 
 	// Add image files to the multipart form data
-	for _, imageFile := range imageData.Image {
-		file, err := os.Open(string(imageFile))
-		if err != nil {
-			return models.EtsyListingImageResponse{}, fmt.Errorf("failed to open image file: %v", err)
-		}
-		defer file.Close()
-
-		part, err := writer.CreateFormFile("images[]", string(imageFile))
-		if err != nil {
-			return models.EtsyListingImageResponse{}, fmt.Errorf("failed to create form file: %v", err)
-		}
-
-		_, err = io.Copy(part, file)
-		if err != nil {
-			return models.EtsyListingImageResponse{}, fmt.Errorf("failed to copy file data: %v", err)
-		}
+	part, err := writer.CreateFormFile("image", imageData.Image)
+	if err != nil {
+		return models.EtsyListingImageResponse{}, fmt.Errorf("failed to create form file: %v", err)
+	}
+	file, err := os.Open(imageData.Image)
+	if err != nil {
+		return models.EtsyListingImageResponse{}, fmt.Errorf("failed to open file: %v", err)
+	}
+	defer file.Close()
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return models.EtsyListingImageResponse{}, fmt.Errorf("failed to copy file: %v", err)
 	}
 
 	// Close the multipart writer
@@ -253,7 +283,7 @@ func (api *EtsyAPI) UploadImage(imageData models.EtsyListingImageRequest, listin
 	return imageReponse, nil
 }
 
-func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryRequest, listingID int, accessToken string) (err error) {
+func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryRequest, listingID int) (err error) {
 	url := fmt.Sprintf("https://api.etsy.com/v3/application/listings/%d/inventory", listingID)
 
 	req, err := http.NewRequest("PUT", url, nil)
@@ -261,7 +291,7 @@ func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryReq
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 	req.Header.Add("x-api-key", api.apiKey)
-	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("Authorization", "Bearer "+api.accessToken)
 
 	jsonListing, err := json.Marshal(inventoryData)
 	if err != nil {
@@ -269,7 +299,6 @@ func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryReq
 		return
 	}
 	req.Body = io.NopCloser(strings.NewReader(string(jsonListing)))
-	log.Println(string(jsonListing))
 
 	req.Header.Set("Content-Type", "application/json")
 
@@ -279,9 +308,7 @@ func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryReq
 	if err != nil {
 		return fmt.Errorf("failed to send request: %v", err)
 	}
-	log.Print(resp)
 	defer resp.Body.Close()
-	log.Println(resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)
@@ -289,13 +316,49 @@ func (api *EtsyAPI) SubmitInventory(inventoryData models.EtsyListingInventoryReq
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("failed to send request: %s", string(body))
 	}
-	log.Println(string(body))
+
+	return nil
+}
+
+func (api *EtsyAPI) UpdateListingState(listingID int, state string) (err error) {
+	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/listings/%d", api.shopID, listingID)
+
+	req, err := http.NewRequest("PATCH", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Add("x-api-key", api.apiKey)
+	req.Header.Add("Authorization", "Bearer "+api.accessToken)
+
+	jsonListing, err := json.Marshal(models.EtsyListingStateRequest{State: state})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Body = io.NopCloser(strings.NewReader(string(jsonListing)))
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Example code to send the HTTP request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("failed to send request: %s", string(body))
+	}
 
 	return nil
 }
 
 func (api *EtsyAPI) AuthorizeApp() (string, string, time.Time, error) {
-	log.Println("Authorizing app")
+	fmt.Println("Authorizing app")
 	ctx := context.Background()
 	conf := api.oauth2
 	// Generate a random code verifier
@@ -328,10 +391,10 @@ func (api *EtsyAPI) AuthorizeApp() (string, string, time.Time, error) {
 		log.Println(code, codeVerifier)
 		log.Fatal(err)
 	}
-	log.Println(tok.AccessToken)
+	// log.Println(tok.AccessToken)
 
-	log.Println(tok.RefreshToken)
-	log.Println(tok.Expiry)
+	// log.Println(tok.RefreshToken)
+	// log.Println(tok.Expiry)
 
 	client := conf.Client(ctx, tok)
 	client.Get("...")
@@ -358,60 +421,11 @@ func (api *EtsyAPI) RefreshToken() (string, string, time.Time, error) {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("New access token: %s\n", newTok.AccessToken)
-	fmt.Printf("New refresh token: %s\n", newTok.RefreshToken)
-	fmt.Printf("New expiry: %s\n", newTok.Expiry)
+	// fmt.Printf("New access token: %s\n", newTok.AccessToken)
+	// fmt.Printf("New refresh token: %s\n", newTok.RefreshToken)
+	// fmt.Printf("New expiry: %s\n", newTok.Expiry)
 	return newTok.AccessToken, newTok.RefreshToken, newTok.Expiry, nil
 }
-
-// type customTokenSource struct {
-// 	ctx  context.Context
-// 	conf *oauth2.Config
-// 	tok  *oauth2.Token
-// }
-
-// func (c *customTokenSource) EtsyToken() (*oauth2.Token, error) {
-// 	if c.tok.Valid() {
-// 		fmt.Println("Token is valid")
-// 		return c.tok, nil
-// 	} else {
-// 		fmt.Println("Token is not valid, refreshing")
-// 	}
-
-// 	v := url.Values{
-// 		"grant_type":    {"refresh_token"},
-// 		"refresh_token": {c.tok.RefreshToken},
-// 		"client_id":     {c.conf.ClientID},
-// 	}
-
-// 	req, err := http.NewRequest("POST", c.conf.Endpoint.TokenURL, strings.NewReader(v.Encode()))
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-// 	resp, err := http.DefaultClient.Do(req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	body, err := io.ReadAll(resp.Body)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var token oauth2.Token
-// 	err = json.Unmarshal(body, &token)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	c.tok = &token
-// 	log.Println(c.tok)
-// 	return c.tok, nil
-// }
 
 func (api *EtsyAPI) GetShopID(shopName string) (string, error) {
 	urlString := "https://api.etsy.com/v3/application/shops"

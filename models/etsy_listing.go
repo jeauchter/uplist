@@ -60,6 +60,7 @@ type ListingImage struct {
 	Image string `json:"image"`
 	Path  string `json:"path"`
 	Url   string `json:"url"`
+	Rank  int    `json:"rank"`
 }
 
 type ListingImages map[string]ListingImage
@@ -79,6 +80,7 @@ type EtsyListingRequest struct {
 	Tags              string          `json:"tags"`
 	Type              EtsyListingType `json:"type"`
 	ShippingProfileID int             `json:"shipping_profile_id"`
+	ReturnPolicyID    int             `json:"return_policy_id"`
 }
 
 type EtsyListingResponse struct {
@@ -200,4 +202,21 @@ type EtsyListingImageResponse struct {
 	FullHeight        int    `json:"full_height"`
 	FullWidth         int    `json:"full_width"`
 	AltText           string `json:"alt_text"`
+}
+
+type EtsyListingStateRequest struct {
+	State string `json:"state"`
+}
+
+type EtsyReturnPolicyRepsonse struct {
+	Count   int                `json:"count"`
+	Results []EtsyReturnPolicy `json:"results"`
+}
+
+type EtsyReturnPolicy struct {
+	ReturnPolicyID   int  `json:"return_policy_id"`
+	ShopID           int  `json:"shop_id"`
+	AcceptsReturns   bool `json:"accepts_returns"`
+	AcceptsExchanges bool `json:"accepts_exchanges"`
+	ReturnDeadline   int  `json:"return_deadline"`
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/jeremyauchter/uplist/models"
 	"github.com/jeremyauchter/uplist/repositories"
 	"github.com/jeremyauchter/uplist/services"
-	"github.com/jeremyauchter/uplist/util"
 	"gorm.io/gorm"
 )
 
@@ -177,16 +176,15 @@ func (ul *Uplist) Run() {
 	}
 	fmt.Println(status)
 	// get shop listings
-	listings, err := ul.etsyAPI.GetListingsByShop()
-	if err != nil {
-		log.Fatal(err)
-		panic(err)
-	}
-	util.PrintJSON(listings)
+	// listings, err := ul.etsyAPI.GetListingsByShop()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// 	panic(err)
+	// }
+	// // util.PrintJSON(listings)
 
 	ul.GetCSVPath()
-	fmt.Println(ul.csvPath)
-	// ul.publishListings()
+	ul.publishListings()
 }
 
 func (ul *Uplist) DetermineOS() {
@@ -222,20 +220,23 @@ func (ul *Uplist) GetCSVPath() {
 }
 
 func (ul *Uplist) publishListings() {
-	reply, err := ul.etsyAPI.Ping()
-	if err != nil {
-		log.Fatal(err)
-		panic(err)
-	}
 
 	// Fetch resources from the csv file
 	etsyProductService := services.NewProductToEtsyListingService()
-	listings, images, err := etsyProductService.ConvertToEtsyListing(ul.config)
+	listings, images, err := etsyProductService.ConvertToEtsyListing(ul.csvPath)
+	fmt.Println("Listings Converted! Count: " + strconv.Itoa(len(listings)))
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	}
 	// util.PrintJSON(listings)
+	// Get Return Policy
+	returnPolicies, err := ul.etsyAPI.GetReturnPolicies()
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	returnPolicy := returnPolicies.Results[0].ReturnPolicyID
 
 	// download all images
 	etsyProductService.DownloadImages(ul.etsyAPI, images) // Discard the return value
@@ -243,16 +244,18 @@ func (ul *Uplist) publishListings() {
 	// for each product in results
 	for _, listing := range listings {
 		// Submit Listing to Etsy
-		listingId, err := etsyProductService.SubmitListingToEtsy(listing, ul.etsyAPI, ul.config)
+		listingId, err := etsyProductService.SubmitListingToEtsy(listing, ul.etsyAPI, ul.config, returnPolicy)
 		if err != nil {
 			log.Fatal(err)
 			panic(err)
 		}
+		fmt.Println("Listing ID: ", listingId)
 
 		// Submit Images for the Listing
+		fmt.Println("Uploading Images")
 		listingImages := etsyProductService.ConvertImagesToEtsyImageRequests(listing.Images)
-		for _, image := range listingImages {
-			_, err := ul.etsyAPI.UploadImage(image, listingId)
+		for counter, image := range listingImages {
+			_, err := ul.etsyAPI.UploadImage(image, listingId, counter)
 			if err != nil {
 				log.Fatal(err)
 				panic(err)
@@ -262,22 +265,30 @@ func (ul *Uplist) publishListings() {
 			}
 
 		}
+		fmt.Println("Images Uploaded!")
+		fmt.Println("Uploading Inventory")
 		// Submit Inventory for the Listing
 		inventoryRequest := etsyProductService.ConvertVariantsToEtsyProduct(listing.Variants)
-		util.PrintJSON(inventoryRequest)
-		// TODO: implement token store in database over passing it all over the place
-		err = ul.etsyAPI.SubmitInventory(inventoryRequest, listingId, "token")
+		// util.PrintJSON(inventoryRequest)
+		err = ul.etsyAPI.SubmitInventory(inventoryRequest, listingId)
 		if err != nil {
 			log.Fatal(err)
 			panic(err)
 		}
+		fmt.Println("Inventory Uploaded!")
+
 		// util.PrintJSON(listing.Variants)
 		// update listing to active
-		// TODO: implement UpdateListingState
-		// _, err = ul.etsyAPI.UpdateListingState(listingId, "active")
+		fmt.Println("Updating Listing State")
+		err = ul.etsyAPI.UpdateListingState(listingId, "active")
+		if err != nil {
+			log.Fatal(err)
+			panic(err)
+		}
+		fmt.Println("Listing State Updated!")
+		fmt.Println("Listing ID: ", listingId)
 	}
 	// delete images from local
 	etsyProductService.DeleteLocalImages(images)
-
-	fmt.Println("response :", reply)
+	fmt.Println("Listings Published!")
 }

@@ -11,7 +11,7 @@ import (
 )
 
 type ProductCSVRepository interface {
-	GetProducts() []models.ProductCSV
+	GetProducts(svPath string) []models.ProductCSV
 }
 
 type ProductCSVRepo struct{}
@@ -20,13 +20,9 @@ func NewProductCSVRepository() ProductCSVRepository {
 	return &ProductCSVRepo{}
 }
 
-func (r *ProductCSVRepo) GetProducts() []models.ProductCSV {
-	// Fetch resources from database and return
-	if len(os.Args) < 2 {
-		log.Fatal("Please provide a CSV file as a command line argument")
-	}
+func (r *ProductCSVRepo) GetProducts(csvPath string) []models.ProductCSV {
 
-	file, err := os.Open(os.Args[1])
+	file, err := os.Open(csvPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,7 +59,6 @@ func (r *ProductCSVRepo) GetProducts() []models.ProductCSV {
 			log.Fatal(err)
 		}
 		record.Quantity = quantity
-		log.Println(each[13])
 		price, err := strconv.ParseFloat(strings.Replace(each[13], ",", ".", -1), 64)
 		if err != nil {
 			log.Fatal(err)
