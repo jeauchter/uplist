@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/jeremyauchter/uplist/internal/client"
@@ -61,7 +62,7 @@ func (a *AuthorizeServiceImp) RefreshToken(etsyApi *client.EtsyAPI) (string, err
 	etsyApi.SetAccessToken(accessToken)
 	etsyApi.SetRefreshToken(refreshToken)
 	etsyApi.SetExpiresAt(Expiry)
-	return "Refreshed!", nil
+	return fmt.Sprintf("Refreshed! New Access Token %s", accessToken), nil
 }
 
 func (a *AuthorizeServiceImp) GetAccessToken() (string, error) {

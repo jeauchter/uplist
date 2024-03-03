@@ -11,7 +11,7 @@ import (
 )
 
 type ProductCSVRepository interface {
-	GetProducts(svPath string) []models.ProductCSV
+	GetProducts(csvPath string) []models.ProductCSV
 }
 
 type ProductCSVRepo struct{}

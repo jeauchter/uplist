@@ -6,11 +6,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/jeremyauchter/uplist/internal/client"
-	"github.com/jeremyauchter/uplist/internal/config"
 	"github.com/jeremyauchter/uplist/models"
 	"github.com/jeremyauchter/uplist/repositories"
 	"github.com/jeremyauchter/uplist/util"
@@ -36,9 +34,32 @@ func NewProductToEtsyListingService() *ProductToEtsyListingService {
 	}
 }
 
-func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string) (listings []models.EtsyListing, images models.ListingImages, err error) {
+func (s *ProductToEtsyListingService) CreateTempImageDirectory(tempDir string) error {
+	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+		err = os.Mkdir(tempDir, 0755)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		fmt.Println("Temp directory created: " + tempDir)
+	} else {
+		fmt.Println("Temp directory already exists: " + tempDir)
+
+	}
+
+	return nil
+}
+
+func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempStore string) (listings []models.EtsyListing, images models.ListingImages, err error) {
 	// TODO: Implement the logic to convert a product to an Etsy listing
 	productRepo := repositories.NewProductCSVRepository()
+
+	uplistImageDir := fmt.Sprintf("%s/uplist-images", tempStore)
+	err = s.CreateTempImageDirectory(uplistImageDir)
+	if err != nil {
+		log.Fatal(err)
+		return nil, nil, err
+	}
 
 	lines := productRepo.GetProducts(csvPath)
 	var listing models.EtsyListing
@@ -65,7 +86,7 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string) (list
 
 			// build images
 			imageLinks := line.ImageLinks
-			mainImage := models.ListingImage{Url: imageLinks, Path: fmt.Sprintf("../../tmp/images/%s", filepath.Base(imageLinks)), Image: filepath.Base(imageLinks), Rank: 1}
+			mainImage := models.ListingImage{Url: imageLinks, Path: fmt.Sprintf("%s/%s", uplistImageDir, filepath.Base(imageLinks)), Image: filepath.Base(imageLinks), Rank: 1}
 			s.images[imageLinks] = mainImage
 			listing.Images = append(listing.Images, imageLinks)
 			altImages := line.AdditionalImageLink
@@ -79,7 +100,7 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string) (list
 				}
 
 				filename := filepath.Base(parsedURL.Path)
-				image := models.ListingImage{Url: link, Path: fmt.Sprintf("../../tmp/images/%s", filename), Image: filename, Rank: rank}
+				image := models.ListingImage{Url: link, Path: fmt.Sprintf("%s/%s", uplistImageDir, filename), Image: filename, Rank: rank}
 				s.images[link] = image
 				listing.Images = append(listing.Images, link)
 			}
@@ -92,8 +113,6 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string) (list
 	if len(listing.Title) > 0 {
 		listings = append(listings, listing)
 	}
-
-	// util.PrintJSON(listings)
 
 	return listings, s.images, nil
 }
@@ -193,16 +212,13 @@ func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []
 	return etsyImages
 }
 
-func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, config *config.Config, returnPolicyID int) (listingId int, err error) {
-	intShippingProfileID, err := strconv.Atoi(config.ShippingProfileID)
+func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, returnPolicyID int, shippingProfileId int) (listingId int, err error) {
 	if err != nil {
 		log.Fatal(err)
 		return 0, err
 	}
-
 	// build base listing
 	baseListing := models.EtsyListingRequest{
-		ShopID:            config.ShopID,
 		Quantity:          listing.Quantity,
 		Title:             listing.Title,
 		Description:       listing.Description,
@@ -211,7 +227,7 @@ func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyLis
 		WhenMade:          models.Year2020_2024,
 		TaxonomyID:        399,
 		Tags:              strings.Join(listing.Tags, ","),
-		ShippingProfileID: intShippingProfileID,
+		ShippingProfileID: shippingProfileId,
 		Type:              models.Physical,
 		ReturnPolicyID:    returnPolicyID,
 	}

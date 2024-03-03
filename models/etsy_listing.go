@@ -69,7 +69,6 @@ type ListingPropertyIDs map[string]int
 type ListingPropertyValues map[string]int
 
 type EtsyListingRequest struct {
-	ShopID            string          `json:"shop_id"`
 	Quantity          int             `json:"quantity"`
 	Title             string          `json:"title"`
 	Description       string          `json:"description"`

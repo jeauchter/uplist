@@ -54,3 +54,64 @@ type Result struct {
 	ReviewCount                    int      `json:"review_count"`
 	ReviewAverage                  int      `json:"review_average"`
 }
+
+type EtsyShippingProfileResponse struct {
+	Count   int `json:"count"`
+	Results []struct {
+		ShippingProfileID           int    `json:"shipping_profile_id"`
+		Title                       string `json:"title"`
+		UserID                      int    `json:"user_id"`
+		MinProcessingDays           int    `json:"min_processing_days"`
+		MaxProcessingDays           int    `json:"max_processing_days"`
+		ProcessingDaysDisplayLabel  string `json:"processing_days_display_label"`
+		OriginCountryIso            string `json:"origin_country_iso"`
+		IsDeleted                   bool   `json:"is_deleted"`
+		ShippingProfileDestinations []struct {
+			ShippingProfileDestinationID int    `json:"shipping_profile_destination_id"`
+			ShippingProfileID            int    `json:"shipping_profile_id"`
+			OriginCountryIso             string `json:"origin_country_iso"`
+			DestinationCountryIso        string `json:"destination_country_iso"`
+			DestinationRegion            string `json:"destination_region"`
+			PrimaryCost                  struct {
+				Amount       int    `json:"amount"`
+				Divisor      int    `json:"divisor"`
+				CurrencyCode string `json:"currency_code"`
+			} `json:"primary_cost"`
+			SecondaryCost struct {
+				Amount       int    `json:"amount"`
+				Divisor      int    `json:"divisor"`
+				CurrencyCode string `json:"currency_code"`
+			} `json:"secondary_cost"`
+			ShippingCarrierID int    `json:"shipping_carrier_id"`
+			MailClass         string `json:"mail_class"`
+			MinDeliveryDays   int    `json:"min_delivery_days"`
+			MaxDeliveryDays   int    `json:"max_delivery_days"`
+		} `json:"shipping_profile_destinations"`
+		ShippingProfileUpgrades []struct {
+			ShippingProfileID int    `json:"shipping_profile_id"`
+			UpgradeID         int    `json:"upgrade_id"`
+			UpgradeName       string `json:"upgrade_name"`
+			Type              string `json:"type"`
+			Rank              int    `json:"rank"`
+			Language          string `json:"language"`
+			Price             struct {
+				Amount       int    `json:"amount"`
+				Divisor      int    `json:"divisor"`
+				CurrencyCode string `json:"currency_code"`
+			} `json:"price"`
+			SecondaryPrice struct {
+				Amount       int    `json:"amount"`
+				Divisor      int    `json:"divisor"`
+				CurrencyCode string `json:"currency_code"`
+			} `json:"secondary_price"`
+			ShippingCarrierID int    `json:"shipping_carrier_id"`
+			MailClass         string `json:"mail_class"`
+			MinDeliveryDays   int    `json:"min_delivery_days"`
+			MaxDeliveryDays   int    `json:"max_delivery_days"`
+		} `json:"shipping_profile_upgrades"`
+		OriginPostalCode         string `json:"origin_postal_code"`
+		ProfileType              string `json:"profile_type"`
+		DomesticHandlingFee      int    `json:"domestic_handling_fee"`
+		InternationalHandlingFee int    `json:"international_handling_fee"`
+	} `json:"results"`
+}

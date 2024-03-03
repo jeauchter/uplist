@@ -24,13 +24,14 @@ import (
 )
 
 type EtsyAPI struct {
-	oauth2       *oauth2.Config
-	apiKey       string
-	apiSecret    string
-	shopID       string
-	accessToken  string
-	refreshToken string
-	expiresAt    time.Time
+	oauth2            *oauth2.Config
+	apiKey            string
+	apiSecret         string
+	shopID            string
+	accessToken       string
+	refreshToken      string
+	expiresAt         time.Time
+	shippingProfileID int
 }
 
 func NewEtsyAPI(apiKey string, apiSecret string) *EtsyAPI {
@@ -162,6 +163,36 @@ func (api *EtsyAPI) GetReturnPolicies() (models.EtsyReturnPolicyRepsonse, error)
 	}
 
 	return returnPolicy, nil
+}
+
+func (api *EtsyAPI) GetShippingProfiles() (models.EtsyShippingProfileResponse, error) {
+	url := fmt.Sprintf("https://api.etsy.com/v3/application/shops/%s/shipping-profiles", api.shopID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return models.EtsyShippingProfileResponse{}, fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Add("x-api-key", api.apiKey)
+	req.Header.Add("Authorization", "Bearer "+api.accessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return models.EtsyShippingProfileResponse{}, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.EtsyShippingProfileResponse{}, fmt.Errorf("failed to parse body of response: %v", err)
+	}
+
+	var shippingProfiles models.EtsyShippingProfileResponse
+	err = json.Unmarshal(body, &shippingProfiles)
+	if err != nil {
+		return models.EtsyShippingProfileResponse{}, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return shippingProfiles, nil
 }
 
 func (api *EtsyAPI) SubmitListing(listingData models.EtsyListingRequest) (listingResponse models.EtsyListingResponse, err error) {
@@ -402,7 +433,6 @@ func (api *EtsyAPI) AuthorizeApp() (string, string, time.Time, error) {
 }
 
 func (api *EtsyAPI) RefreshToken() (string, string, time.Time, error) {
-	log.Println("Refreshing token")
 	ctx := context.Background()
 	conf := api.oauth2
 	tok := &oauth2.Token{

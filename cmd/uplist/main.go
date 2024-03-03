@@ -10,19 +10,19 @@ import (
 	"strconv"
 
 	"github.com/jeremyauchter/uplist/internal/client"
-	"github.com/jeremyauchter/uplist/internal/config"
 	"github.com/jeremyauchter/uplist/internal/database"
 	"github.com/jeremyauchter/uplist/models"
 	"github.com/jeremyauchter/uplist/repositories"
 	"github.com/jeremyauchter/uplist/services"
+	"github.com/schollz/progressbar/v3"
 	"gorm.io/gorm"
 )
 
 type Uplist struct {
-	config          *config.Config
 	etsyAPI         *client.EtsyAPI
 	csvPath         string
 	PersistentStore string
+	TempStore       string
 	db              *gorm.DB
 }
 
@@ -33,9 +33,7 @@ func main() {
 }
 
 func NewUplist() *Uplist {
-	return &Uplist{
-		config: config.NewConfig(),
-	}
+	return &Uplist{}
 }
 
 func (ul *Uplist) init() {
@@ -189,6 +187,7 @@ func (ul *Uplist) Run() {
 
 func (ul *Uplist) DetermineOS() {
 	// Determine the operating system
+	ul.TempStore = os.TempDir()
 	switch runningOS := runtime.GOOS; runningOS {
 	case "windows":
 		fmt.Println("Determined Uplist is Running on Windows")
@@ -223,7 +222,7 @@ func (ul *Uplist) publishListings() {
 
 	// Fetch resources from the csv file
 	etsyProductService := services.NewProductToEtsyListingService()
-	listings, images, err := etsyProductService.ConvertToEtsyListing(ul.csvPath)
+	listings, images, err := etsyProductService.ConvertToEtsyListing(ul.csvPath, ul.TempStore)
 	fmt.Println("Listings Converted! Count: " + strconv.Itoa(len(listings)))
 	if err != nil {
 		log.Fatal(err)
@@ -237,14 +236,21 @@ func (ul *Uplist) publishListings() {
 		panic(err)
 	}
 	returnPolicy := returnPolicies.Results[0].ReturnPolicyID
+	fmt.Println("Return Policy: ", returnPolicy)
 
+	shippingProfiles, err := ul.etsyAPI.GetShippingProfiles()
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	shippingProfileId := shippingProfiles.Results[0].ShippingProfileID
 	// download all images
 	etsyProductService.DownloadImages(ul.etsyAPI, images) // Discard the return value
 
 	// for each product in results
 	for _, listing := range listings {
 		// Submit Listing to Etsy
-		listingId, err := etsyProductService.SubmitListingToEtsy(listing, ul.etsyAPI, ul.config, returnPolicy)
+		listingId, err := etsyProductService.SubmitListingToEtsy(listing, ul.etsyAPI, returnPolicy, shippingProfileId)
 		if err != nil {
 			log.Fatal(err)
 			panic(err)
@@ -254,8 +260,11 @@ func (ul *Uplist) publishListings() {
 		// Submit Images for the Listing
 		fmt.Println("Uploading Images")
 		listingImages := etsyProductService.ConvertImagesToEtsyImageRequests(listing.Images)
+		bar := progressbar.Default(int64(len(listingImages)))
 		for counter, image := range listingImages {
-			_, err := ul.etsyAPI.UploadImage(image, listingId, counter)
+
+			bar.Add(1)
+			_, err := ul.etsyAPI.UploadImage(image, listingId, counter+1)
 			if err != nil {
 				log.Fatal(err)
 				panic(err)
