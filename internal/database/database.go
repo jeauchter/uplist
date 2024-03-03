@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/jeremyauchter/uplist/models"
+	"github.com/jeauchter/uplist/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

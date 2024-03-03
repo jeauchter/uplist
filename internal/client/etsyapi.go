@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/jeremyauchter/uplist/models"
+	"github.com/jeauchter/uplist/models"
 )
 
 type EtsyAPI struct {

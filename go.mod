@@ -1,4 +1,4 @@
-module github.com/jeremyauchter/uplist
+module github.com/jeauchter/uplist
 
 go 1.21.5
 

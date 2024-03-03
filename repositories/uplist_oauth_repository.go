@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"github.com/jeremyauchter/uplist/models"
+	"github.com/jeauchter/uplist/models"
 	"gorm.io/gorm"
 )
 

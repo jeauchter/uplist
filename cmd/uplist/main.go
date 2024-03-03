@@ -9,11 +9,11 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/jeremyauchter/uplist/internal/client"
-	"github.com/jeremyauchter/uplist/internal/database"
-	"github.com/jeremyauchter/uplist/models"
-	"github.com/jeremyauchter/uplist/repositories"
-	"github.com/jeremyauchter/uplist/services"
+	"github.com/jeauchter/uplist/internal/client"
+	"github.com/jeauchter/uplist/internal/database"
+	"github.com/jeauchter/uplist/models"
+	"github.com/jeauchter/uplist/repositories"
+	"github.com/jeauchter/uplist/services"
 	"github.com/schollz/progressbar/v3"
 	"gorm.io/gorm"
 )

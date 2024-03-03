@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jeremyauchter/uplist/models"
+	"github.com/jeauchter/uplist/models"
 )
 
 type ProductCSVRepository interface {

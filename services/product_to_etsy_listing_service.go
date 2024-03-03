@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jeremyauchter/uplist/internal/client"
-	"github.com/jeremyauchter/uplist/models"
-	"github.com/jeremyauchter/uplist/repositories"
-	"github.com/jeremyauchter/uplist/util"
+	"github.com/jeauchter/uplist/internal/client"
+	"github.com/jeauchter/uplist/models"
+	"github.com/jeauchter/uplist/repositories"
+	"github.com/jeauchter/uplist/util"
 )
 
 type ProductToEtsyListingService struct {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jeremyauchter/uplist/internal/client"
-	"github.com/jeremyauchter/uplist/models"
-	"github.com/jeremyauchter/uplist/repositories"
+	"github.com/jeauchter/uplist/internal/client"
+	"github.com/jeauchter/uplist/models"
+	"github.com/jeauchter/uplist/repositories"
 )
 
 type AuthorizeService interface {
