@@ -5,6 +5,7 @@ go 1.21.5
 require (
 	github.com/schollz/progressbar/v3 v3.14.2
 	golang.org/x/oauth2 v0.17.0
+	github.com/jeauchter/go-etsy-api v0.0.1-alpha
 )
 
 require (

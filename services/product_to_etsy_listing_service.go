@@ -8,25 +8,26 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jeauchter/uplist/internal/client"
+	goetsyapi "github.com/jeauchter/go-etsy-api"
+	etsyapimodels "github.com/jeauchter/go-etsy-api/models"
 	"github.com/jeauchter/uplist/models"
 	"github.com/jeauchter/uplist/repositories"
 	"github.com/jeauchter/uplist/util"
 )
 
 type ProductToEtsyListingService struct {
-	propertyIds    models.ListingPropertyIDs
-	propertyValues models.ListingPropertyValues
+	propertyIds    etsyapimodels.ListingPropertyIDs
+	propertyValues etsyapimodels.ListingPropertyValues
 	option1Name    string
 	option2Name    string
 	option3Name    string
-	images         models.ListingImages
+	images         etsyapimodels.ListingImages
 }
 
 func NewProductToEtsyListingService() *ProductToEtsyListingService {
 	propertyValues := make(map[string]int)
 	propertyIds := make(map[string]int)
-	images := make(map[string]models.ListingImage)
+	images := make(map[string]etsyapimodels.ListingImage)
 	return &ProductToEtsyListingService{
 		propertyIds:    propertyIds,
 		propertyValues: propertyValues,
@@ -50,7 +51,7 @@ func (s *ProductToEtsyListingService) CreateTempImageDirectory(tempDir string) e
 	return nil
 }
 
-func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempStore string) (listings []models.EtsyListing, images models.ListingImages, err error) {
+func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempStore string) (listings []etsyapimodels.EtsyListing, images etsyapimodels.ListingImages, err error) {
 	// TODO: Implement the logic to convert a product to an Etsy listing
 	productRepo := repositories.NewProductCSVRepository()
 
@@ -62,7 +63,7 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempS
 	}
 
 	lines := productRepo.GetProducts(csvPath)
-	var listing models.EtsyListing
+	var listing etsyapimodels.EtsyListing
 	for _, line := range lines {
 		if line.Title != "" {
 
@@ -70,7 +71,7 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempS
 			if len(listing.Title) > 0 {
 				listings = append(listings, listing)
 			}
-			listing = models.EtsyListing{}
+			listing = etsyapimodels.EtsyListing{}
 			listing.Title = line.Title
 			listing.Description = line.Description
 			listing.Price = line.Price
@@ -81,12 +82,12 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempS
 			s.option3Name = line.Option3Name
 
 			// build variants
-			variant := s.HandleVariant(line, models.EtsyVariant{}, models.EtsyListingInventoryRequest{})
+			variant := s.HandleVariant(line, etsyapimodels.EtsyVariant{}, etsyapimodels.EtsyListingInventoryRequest{})
 			listing.Variants = append(listing.Variants, variant)
 
 			// build images
 			imageLinks := line.ImageLinks
-			mainImage := models.ListingImage{Url: imageLinks, Path: fmt.Sprintf("%s/%s", uplistImageDir, filepath.Base(imageLinks)), Image: filepath.Base(imageLinks), Rank: 1}
+			mainImage := etsyapimodels.ListingImage{Url: imageLinks, Path: fmt.Sprintf("%s/%s", uplistImageDir, filepath.Base(imageLinks)), Image: filepath.Base(imageLinks), Rank: 1}
 			s.images[imageLinks] = mainImage
 			listing.Images = append(listing.Images, imageLinks)
 			altImages := line.AdditionalImageLink
@@ -100,13 +101,13 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempS
 				}
 
 				filename := filepath.Base(parsedURL.Path)
-				image := models.ListingImage{Url: link, Path: fmt.Sprintf("%s/%s", uplistImageDir, filename), Image: filename, Rank: rank}
+				image := etsyapimodels.ListingImage{Url: link, Path: fmt.Sprintf("%s/%s", uplistImageDir, filename), Image: filename, Rank: rank}
 				s.images[link] = image
 				listing.Images = append(listing.Images, link)
 			}
 
 		} else {
-			variant := s.HandleVariant(line, models.EtsyVariant{}, models.EtsyListingInventoryRequest{})
+			variant := s.HandleVariant(line, etsyapimodels.EtsyVariant{}, etsyapimodels.EtsyListingInventoryRequest{})
 			listing.Variants = append(listing.Variants, variant)
 		}
 	}
@@ -117,7 +118,7 @@ func (s *ProductToEtsyListingService) ConvertToEtsyListing(csvPath string, tempS
 	return listings, s.images, nil
 }
 
-func (s *ProductToEtsyListingService) HandleVariant(line models.ProductCSV, variant models.EtsyVariant, etsyInventoryRequest models.EtsyListingInventoryRequest) models.EtsyVariant {
+func (s *ProductToEtsyListingService) HandleVariant(line models.ProductCSV, variant etsyapimodels.EtsyVariant, etsyInventoryRequest etsyapimodels.EtsyListingInventoryRequest) etsyapimodels.EtsyVariant {
 
 	variant.SKU = line.SKU
 	variant.Price = line.Price
@@ -157,17 +158,17 @@ func (s *ProductToEtsyListingService) HandleVariant(line models.ProductCSV, vari
 	return variant
 }
 
-func (s *ProductToEtsyListingService) ConvertVariantsToEtsyProduct(variants []models.EtsyVariant) (etsyInventoryRequest models.EtsyListingInventoryRequest) {
+func (s *ProductToEtsyListingService) ConvertVariantsToEtsyProduct(variants []etsyapimodels.EtsyVariant) (etsyInventoryRequest etsyapimodels.EtsyListingInventoryRequest) {
 	for _, variant := range variants {
-		var product models.EtsyProduct
+		var product etsyapimodels.EtsyProduct
 		product.SKU = variant.SKU
-		var productOffering models.EtsyOffering
+		var productOffering etsyapimodels.EtsyOffering
 		productOffering.IsEnabled = true
 		productOffering.Price = variant.Price
 		productOffering.Quantity = variant.Quantity
 		product.Offerings = append(product.Offerings, productOffering)
 		if variant.Option1Name != "" {
-			var propertyValue models.EtsyPropertyValue
+			var propertyValue etsyapimodels.EtsyPropertyValue
 			propertyValue.PropertyID = s.propertyIds[variant.Option1Name]
 			propertyValue.PropertyName = variant.Option1Name
 			propertyValue.ValueIDs = append(propertyValue.ValueIDs, s.propertyValues[variant.Option1Value])
@@ -175,7 +176,7 @@ func (s *ProductToEtsyListingService) ConvertVariantsToEtsyProduct(variants []mo
 			product.PropertyValues = append(product.PropertyValues, propertyValue)
 		}
 		if variant.Option2Name != "" {
-			var propertyValue models.EtsyPropertyValue
+			var propertyValue etsyapimodels.EtsyPropertyValue
 			propertyValue.PropertyID = s.propertyIds[variant.Option2Name]
 			propertyValue.PropertyName = variant.Option2Name
 			propertyValue.ValueIDs = append(propertyValue.ValueIDs, s.propertyValues[variant.Option2Value])
@@ -183,7 +184,7 @@ func (s *ProductToEtsyListingService) ConvertVariantsToEtsyProduct(variants []mo
 			product.PropertyValues = append(product.PropertyValues, propertyValue)
 		}
 		if variant.Option3Name != "" {
-			var propertyValue models.EtsyPropertyValue
+			var propertyValue etsyapimodels.EtsyPropertyValue
 			propertyValue.PropertyID = s.propertyIds[variant.Option3Name]
 			propertyValue.PropertyName = variant.Option3Name
 			propertyValue.ValueIDs = append(propertyValue.ValueIDs, s.propertyValues[variant.Option3Value])
@@ -202,9 +203,9 @@ func (s *ProductToEtsyListingService) ConvertVariantsToEtsyProduct(variants []mo
 	return etsyInventoryRequest
 }
 
-func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []string) (etsyImages []models.EtsyListingImageRequest) {
+func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []string) (etsyImages []etsyapimodels.EtsyListingImageRequest) {
 	for _, image := range images {
-		etsyImage := models.EtsyListingImageRequest{
+		etsyImage := etsyapimodels.EtsyListingImageRequest{
 			Image: s.images[image].Path,
 		}
 		etsyImages = append(etsyImages, etsyImage)
@@ -212,20 +213,20 @@ func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []
 	return etsyImages
 }
 
-func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, returnPolicyID int, shippingProfileId int) (listingId int, err error) {
+func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing etsyapimodels.EtsyListing, etsyApi *goetsyapi.EtsyAPI, returnPolicyID int, shippingProfileId int) (listingId int, err error) {
 
 	// build base listing
-	baseListing := models.EtsyListingRequest{
+	baseListing := etsyapimodels.EtsyListingRequest{
 		Quantity:          listing.Quantity,
 		Title:             listing.Title,
 		Description:       listing.Description,
 		Price:             listing.Price,
-		WhoMade:           models.IDid,
-		WhenMade:          models.Year2020_2024,
+		WhoMade:           etsyapimodels.IDid,
+		WhenMade:          etsyapimodels.Year2020_2024,
 		TaxonomyID:        399,
 		Tags:              strings.Join(listing.Tags, ","),
 		ShippingProfileID: shippingProfileId,
-		Type:              models.Physical,
+		Type:              etsyapimodels.Physical,
 		ReturnPolicyID:    returnPolicyID,
 	}
 	listingResponse, err := etsyApi.SubmitListing(baseListing)
@@ -239,7 +240,7 @@ func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyLis
 	return listingID, nil
 }
 
-func (s *ProductToEtsyListingService) DownloadImages(etsyApi *client.EtsyAPI, images models.ListingImages) {
+func (s *ProductToEtsyListingService) DownloadImages(etsyApi *goetsyapi.EtsyAPI, images etsyapimodels.ListingImages) {
 	for _, image := range images {
 		// only download the image if it doesn't exist
 		filepath := image.Path
@@ -251,7 +252,7 @@ func (s *ProductToEtsyListingService) DownloadImages(etsyApi *client.EtsyAPI, im
 	}
 }
 
-func (s *ProductToEtsyListingService) DeleteLocalImages(images models.ListingImages) {
+func (s *ProductToEtsyListingService) DeleteLocalImages(images etsyapimodels.ListingImages) {
 	for _, image := range images {
 		filepath := image.Path
 		err := os.Remove(filepath)

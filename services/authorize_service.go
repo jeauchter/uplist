@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jeauchter/uplist/internal/client"
+	goetsyapi "github.com/jeauchter/go-etsy-api"
 	"github.com/jeauchter/uplist/models"
 	"github.com/jeauchter/uplist/repositories"
 )
 
 type AuthorizeService interface {
-	AuthorizeApp(etsyApi *client.EtsyAPI) (string, error)
-	RefreshToken(etsyApi *client.EtsyAPI) (string, error)
+	AuthorizeApp(etsyApi *goetsyapi.EtsyAPI) (string, error)
+	RefreshToken(etsyApi *goetsyapi.EtsyAPI) (string, error)
 }
 
 type AuthorizeServiceImp struct {
@@ -24,7 +24,7 @@ func NewAuthorizeService(rep *repositories.UplistOauthRepository) AuthorizeServi
 	}
 }
 
-func (a *AuthorizeServiceImp) AuthorizeApp(etsyApi *client.EtsyAPI) (string, error) {
+func (a *AuthorizeServiceImp) AuthorizeApp(etsyApi *goetsyapi.EtsyAPI) (string, error) {
 	accessToken, refreshToken, Expiry, err := etsyApi.AuthorizeApp()
 	if err != nil {
 		log.Fatal(err)
@@ -41,7 +41,7 @@ func (a *AuthorizeServiceImp) AuthorizeApp(etsyApi *client.EtsyAPI) (string, err
 	return "Authorized!", nil
 }
 
-func (a *AuthorizeServiceImp) RefreshToken(etsyApi *client.EtsyAPI) (string, error) {
+func (a *AuthorizeServiceImp) RefreshToken(etsyApi *goetsyapi.EtsyAPI) (string, error) {
 	existing, err := a.rep.Read(1)
 	if err != nil {
 		log.Fatal(err)

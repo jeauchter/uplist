@@ -9,7 +9,8 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/jeauchter/uplist/internal/client"
+	goetsyapi "github.com/jeauchter/go-etsy-api"
+	etsyapimodels "github.com/jeauchter/go-etsy-api/models"
 	"github.com/jeauchter/uplist/internal/database"
 	"github.com/jeauchter/uplist/models"
 	"github.com/jeauchter/uplist/repositories"
@@ -19,7 +20,7 @@ import (
 )
 
 type Uplist struct {
-	etsyAPI         *client.EtsyAPI
+	etsyAPI         *goetsyapi.EtsyAPI
 	csvPath         string
 	PersistentStore string
 	TempStore       string
@@ -63,11 +64,12 @@ func (ul *Uplist) init() {
 			log.Fatal(err)
 		}
 		fmt.Println("Shop Name Configured as: ", shopName)
-		apiKey, apiSecret := ul.SetApiKeys()
+		apiKey, apiSecret, apiRedirectURL := ul.SetApiKeys()
 		newOauthRecord := &models.UplistOauth{
-			ShopName:  shopName,
-			APIKey:    apiKey,
-			APISecret: apiSecret,
+			ShopName:       shopName,
+			APIKey:         apiKey,
+			APISecret:      apiSecret,
+			APIRedirectURL: apiRedirectURL,
 		}
 		err = uplistOauth.Create(newOauthRecord)
 		if err != nil {
@@ -77,7 +79,7 @@ func (ul *Uplist) init() {
 	} else {
 		fmt.Printf("Shop Name Configured as: %s\n", shopConfig.ShopName)
 	}
-	ul.etsyAPI = client.NewEtsyAPI(shopConfig.APIKey, shopConfig.APISecret)
+	ul.etsyAPI = goetsyapi.NewEtsyAPI(shopConfig.APIKey, shopConfig.APISecret, shopConfig.APIRedirectURL)
 
 	statusCode, err := ul.etsyAPI.Ping()
 	if err != nil {
@@ -85,16 +87,17 @@ func (ul *Uplist) init() {
 		panic(err)
 	}
 	if statusCode > 400 {
-		fmt.Println("Looks like the API Key and Secret are not valid, please provide the following information")
-		apiKey, apiSecret := ul.SetApiKeys()
+		fmt.Println("Looks like the API Key, Secret, and RedirectURL are not valid, please provide the following information")
+		apiKey, apiSecret, apiRedirectURL := ul.SetApiKeys()
 		shopConfig.APIKey = apiKey
 		shopConfig.APISecret = apiSecret
+		shopConfig.APIRedirectURL = apiRedirectURL
 		err = uplistOauth.Update(shopConfig)
 		if err != nil {
 			log.Fatalf("Failed to update shop config record: %v", err)
 			panic(err)
 		}
-		ul.etsyAPI = client.NewEtsyAPI(shopConfig.APIKey, shopConfig.APISecret)
+		ul.etsyAPI = goetsyapi.NewEtsyAPI(shopConfig.APIKey, shopConfig.APISecret, shopConfig.APIRedirectURL)
 	}
 	statusCode, err = ul.etsyAPI.Ping()
 	if err != nil {
@@ -127,7 +130,7 @@ func (ul *Uplist) init() {
 			panic(err)
 		}
 		resultsBytes := []byte(results)
-		shopResults := models.EtsyShop{}
+		shopResults := etsyapimodels.EtsyShop{}
 		err = json.Unmarshal(resultsBytes, &shopResults) // Fix: Pass the address of shopResults
 		if err != nil {
 			log.Fatal(err)
@@ -145,7 +148,7 @@ func (ul *Uplist) init() {
 
 }
 
-func (ul *Uplist) SetApiKeys() (string, string) {
+func (ul *Uplist) SetApiKeys() (string, string, string) {
 	fmt.Println("Please enter the API Key for Uplist")
 	var apiKey string
 	if _, err := fmt.Scan(&apiKey); err != nil {
@@ -160,7 +163,14 @@ func (ul *Uplist) SetApiKeys() (string, string) {
 		log.Fatal(err)
 	}
 	fmt.Println("API Secret Configured")
-	return apiKey, apiSecret
+	fmt.Println("Please enter the API Redirect for Uplist")
+	var apiRedirectURL string
+	if _, err := fmt.Scan(&apiRedirectURL); err != nil {
+		log.Println(apiRedirectURL)
+		log.Fatal(err)
+	}
+	fmt.Println("API Secret Configured")
+	return apiKey, apiSecret, apiRedirectURL
 }
 
 func (ul *Uplist) Run() {
