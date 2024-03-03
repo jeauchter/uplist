@@ -13,6 +13,7 @@ import (
 	"github.com/jeauchter/uplist/models"
 	"github.com/jeauchter/uplist/repositories"
 	"github.com/jeauchter/uplist/util"
+	"github.com/schollz/progressbar/v3"
 )
 
 type ProductToEtsyListingService struct {
@@ -241,13 +242,13 @@ func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing etsyapimodels.
 }
 
 func (s *ProductToEtsyListingService) DownloadImages(etsyApi *goetsyapi.EtsyAPI, images etsyapimodels.ListingImages) {
+	bar := progressbar.Default(int64(len(images)))
 	for _, image := range images {
+		bar.Add(1)
 		// only download the image if it doesn't exist
 		filepath := image.Path
 		if _, err := os.Stat(filepath); err != nil {
 			etsyApi.DownloadImage(image)
-		} else {
-			log.Println("Image already exists:", filepath)
 		}
 	}
 }

@@ -255,7 +255,9 @@ func (ul *Uplist) publishListings() {
 	}
 	shippingProfileId := shippingProfiles.Results[0].ShippingProfileID
 	// download all images
+	fmt.Println("Downloading All Images")
 	etsyProductService.DownloadImages(ul.etsyAPI, images) // Discard the return value
+	fmt.Println("Completed Downloading All Images")
 
 	// for each product in results
 	for _, listing := range listings {
