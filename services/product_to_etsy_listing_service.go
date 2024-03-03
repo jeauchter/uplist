@@ -213,7 +213,7 @@ func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []
 	return etsyImages
 }
 
-func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing etsyapimodels.EtsyListing, etsyApi *goetsyapi.EtsyAPI, returnPolicyID int, shippingProfileId int) (listingId int, err error) {
+func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing etsyapimodels.EtsyListing, etsyApi *goetsyapi.EtsyAPI, returnPolicyID int, shippingProfileId int) (listingId int, listingTitle string, err error) {
 
 	// build base listing
 	baseListing := etsyapimodels.EtsyListingRequest{
@@ -232,12 +232,12 @@ func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing etsyapimodels.
 	listingResponse, err := etsyApi.SubmitListing(baseListing)
 	if err != nil {
 		log.Fatal(err)
-		return 0, err
+		return 0, "", err
 	}
 
 	// get listing ID
 	listingID := listingResponse.ListingID
-	return listingID, nil
+	return listingID, listingResponse.Title, nil
 }
 
 func (s *ProductToEtsyListingService) DownloadImages(etsyApi *goetsyapi.EtsyAPI, images etsyapimodels.ListingImages) {

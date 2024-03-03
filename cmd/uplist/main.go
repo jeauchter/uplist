@@ -260,13 +260,11 @@ func (ul *Uplist) publishListings() {
 	// for each product in results
 	for _, listing := range listings {
 		// Submit Listing to Etsy
-		listingId, err := etsyProductService.SubmitListingToEtsy(listing, ul.etsyAPI, returnPolicy, shippingProfileId)
+		listingId, listingTitle, err := etsyProductService.SubmitListingToEtsy(listing, ul.etsyAPI, returnPolicy, shippingProfileId)
 		if err != nil {
 			log.Fatal(err)
 			panic(err)
 		}
-		fmt.Println("Listing ID: ", listingId)
-
 		// Submit Images for the Listing
 		fmt.Println("Uploading Images")
 		listingImages := etsyProductService.ConvertImagesToEtsyImageRequests(listing.Images)
@@ -304,7 +302,7 @@ func (ul *Uplist) publishListings() {
 			log.Fatal(err)
 			panic(err)
 		}
-		fmt.Println("Listing State Updated!")
+		fmt.Printf("Listing State Updated to active for %s!\n", listingTitle)
 		fmt.Println("Listing ID: ", listingId)
 	}
 	// delete images from local
