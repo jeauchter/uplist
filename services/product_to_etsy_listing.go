@@ -213,10 +213,7 @@ func (s *ProductToEtsyListingService) ConvertImagesToEtsyImageRequests(images []
 }
 
 func (s *ProductToEtsyListingService) SubmitListingToEtsy(listing models.EtsyListing, etsyApi *client.EtsyAPI, returnPolicyID int, shippingProfileId int) (listingId int, err error) {
-	if err != nil {
-		log.Fatal(err)
-		return 0, err
-	}
+
 	// build base listing
 	baseListing := models.EtsyListingRequest{
 		Quantity:          listing.Quantity,
